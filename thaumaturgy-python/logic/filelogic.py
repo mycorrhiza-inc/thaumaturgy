@@ -42,7 +42,7 @@ from util.file_io import S3FileManager
 
 from constants import KESSLER_URL, OS_TMPDIR, OS_HASH_FILEDIR, OS_BACKUP_FILEDIR
 
-
+import asyncio
 import aiohttp
 
 
@@ -253,11 +253,14 @@ async def process_file_raw(
         }
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=json_data) as response:
+                response_code = response.status
                 response_data = await response.json()
                 # await the json if async
 
                 if response_data is None:
                     raise Exception("Response is bad")
+                if response_code < 200 or response_code >= 300:
+                    raise Exception(f"Bad response code: {response_code}")
 
         return DocumentStatus.embeddings_completed
 
@@ -265,19 +268,22 @@ async def process_file_raw(
         raise Exception("Not Implemented: Summarization")
         return DocumentStatus.summarization_completed
 
-    async def push_result_to_db():
+    async def push_result_to_db() -> None:
         url = KESSLER_URL + "/api/v1/thaumaturgy/upsert_file"
         json_data = obj.dict()
         json_data["id"] = str(obj.id)
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=json_data) as response:
-                response_data = await response.json()
-                # await the json if async
+        for _ in range(5):
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=json_data) as response:
+                    response_code = response.status
+                    if response_code >= 200 and response_code < 300:
+                        return None
+            await asyncio.sleep(10)
+        raise Exception(
+            "Tried 5 times to commit file to DB and failed. TODO: SAVE AND BACKUP THE FILE TO REDIS OR SOMETHING IF THIS FAILS."
+        )
 
-                if response_data is None:
-                    raise Exception("Response is bad")
-
-        return DocumentStatus.embeddings_completed
+        # await the json if async
 
     while True:
         if docstatus_index(current_stage) >= docstatus_index(stop_at):
