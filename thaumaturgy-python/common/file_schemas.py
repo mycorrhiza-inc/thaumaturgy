@@ -43,7 +43,7 @@ class FileSchema(BaseModel):
 
 
 class FileSchemaFull(BaseModel):
-    id: Annotated[Any, Field(validate_default=True)]
+    id: UUID
     url: str | None = None
     hash: str | None = None
     doctype: str | None = None
@@ -55,8 +55,8 @@ class FileSchemaFull(BaseModel):
     summary: str | None = None
     organization_id: UUID | None = None
     mdata: dict | None = None
-    texts: List[FileTextSchema] | None = []
-    authors: List[IndividualSchema] | None = []
+    texts: List[FileTextSchema] = []
+    authors: List[IndividualSchema] = []
     organization: OrganizationSchema | None = None
 
 
@@ -67,6 +67,7 @@ class DocumentStatus(str, Enum):
     organization_assigned = "organization_assigned"
     summarization_completed = "summarization_completed"
     embeddings_completed = "embeddings_completed"
+    upload_document_to_db = "upload_document_to_db"
     stage3 = "stage3"
     stage2 = "stage2"
     stage1 = "stage1"
@@ -86,13 +87,15 @@ def docstatus_index(docstatus: DocumentStatus) -> int:
             return 2
         case DocumentStatus.stage3:
             return 3
-        case DocumentStatus.embeddings_completed:
-            return 4
         case DocumentStatus.summarization_completed:
+            return 4
+        case DocumentStatus.embeddings_completed:
             return 5
         case DocumentStatus.organization_assigned:
             return 6
         case DocumentStatus.encounters_analyzed:
             return 7
+        case DocumentStatus.upload_document_to_db:
+            return 8
         case DocumentStatus.completed:
             return 1000

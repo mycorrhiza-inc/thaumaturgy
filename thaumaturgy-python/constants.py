@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 
 
+KESSLER_URL = "https://app.kessler.xyz/"
+
 DATALAB_API_KEY = os.environ["DATALAB_API_KEY"]
 FIREWORKS_EMBEDDING_URL = "https://api.fireworks.ai/inference/v1"
 MARKER_ENDPOINT_URL = os.environ["MARKER_ENDPOINT_URL"]

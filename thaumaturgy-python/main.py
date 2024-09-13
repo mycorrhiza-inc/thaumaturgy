@@ -45,7 +45,6 @@ api_router = Router(
 
 app = Litestar(
     on_startup=[on_startup],
-    plugins=[utils.sqlalchemy_plugin],
     route_handlers=[api_router],
     cors_config=cors_config,
     logging_config=logging_config,

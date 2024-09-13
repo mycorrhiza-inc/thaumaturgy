@@ -1,4 +1,5 @@
 from typing_extensions import Doc
+from common.file_schemas import FileSchemaFull
 from vecstore.docprocess import add_document_to_db
 import os
 from pathlib import Path
@@ -39,7 +40,10 @@ from util.file_io import S3FileManager
 
 # import base64
 
-from constants import OS_TMPDIR, OS_HASH_FILEDIR, OS_BACKUP_FILEDIR
+from constants import KESSLER_URL, OS_TMPDIR, OS_HASH_FILEDIR, OS_BACKUP_FILEDIR
+
+
+import aiohttp
 
 
 async def add_file_raw(
@@ -154,17 +158,23 @@ async def process_fileid_raw(
     logger.info(file_uuid)
     obj = await files_repo.get(file_uuid)
     return await process_file_raw(
-        obj, files_repo, logger=logger, stop_at=stop_at, priority=priority
+        obj, logger=logger, stop_at=stop_at, priority=priority
     )
 
 
 async def process_file_raw(
-    obj: FileModel,
-    files_repo: FileRepository,
+    obj: Optional[FileSchemaFull],
     logger: Any,
     stop_at: Optional[DocumentStatus] = None,
     priority: bool = True,
 ):
+    if obj is None:
+        obj = FileSchemaFull(id=UUID())
+    if obj.hash is None:
+        raise Exception("You done fucked up, you forgot to pass in a hash")
+    if obj.lang is None or obj.lang == "":
+        raise Exception("You done fucked up, you forgot to pass in a language")
+
     if stop_at is None:
         stop_at = DocumentStatus.completed
     source_id = obj.id
@@ -174,16 +184,11 @@ async def process_file_raw(
     logger.info(obj.doctype)
     mdextract = MarkdownExtractor(logger, OS_TMPDIR, priority=priority)
     file_manager = S3FileManager(logger=logger)
-    doc_metadata = json.loads(obj.mdata)
+    doc_metadata = obj.mdata
     # Move back to stage 1 after all files are in s3 to save bandwith
     file_path = file_manager.generate_local_filepath_from_hash(obj.hash)
     if file_path is None:
         raise Exception(f"File Must Not exist for hash {obj.hash}")
-
-    response_code, response_message = (
-        500,
-        "Internal error somewhere in process.",
-    )
 
     # TODO: Replace with pydantic validation
 
@@ -238,47 +243,47 @@ async def process_file_raw(
 
     # TODO: Replace with pydantic validation
 
-    async def process_stage_three():
-        logger.info("Adding Document to Vector Database")
+    async def process_embeddings():
+        logger.info("Adding Embeddings")
+        url = KESSLER_URL + "/api/v1/thaumaturgy/insert_file_embeddings"
+        json_data = {
+            "hash": obj.hash,
+            "id": str(obj.id),
+            "metadata": json.loads(obj.mdata),
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=json_data) as response:
+                response_data = await response.json()
+                # await the json if async
 
-        def generate_searchable_metadata(initial_metadata: dict) -> dict:
-            return_metadata = {
-                "title": initial_metadata.get("title"),
-                "author": initial_metadata.get("author"),
-                "source": initial_metadata.get("source"),
-                "date": initial_metadata.get("date"),
-                "source_id": source_id,
-            }
+                if response_data is None:
+                    raise Exception("Response is bad")
 
-            def guarentee_field(field: str, default_value: Any = "unknown"):
-                if return_metadata.get(field) is None:
-                    return_metadata[field] = default_value
+        return DocumentStatus.embeddings_completed
 
-            guarentee_field("title")
-            guarentee_field("author")
-            guarentee_field("source")
-            guarentee_field("date")
-            return return_metadata
+    async def create_summary():
+        raise Exception("Not Implemented: Summarization")
+        return DocumentStatus.summarization_completed
 
-        searchable_metadata = generate_searchable_metadata(doc_metadata)
-        try:
-            add_document_to_db(obj.english_text, metadata=searchable_metadata)
-        except Exception as e:
-            raise Exception("Failure in adding document to vector database", e)
-        return DocumentStatus.completed
+    async def push_result_to_db():
+        url = KESSLER_URL + "/api/v1/thaumaturgy/upsert_file"
+        json_data = obj.dict()
+        json_data["id"] = str(obj.id)
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=json_data) as response:
+                response_data = await response.json()
+                # await the json if async
+
+                if response_data is None:
+                    raise Exception("Response is bad")
+
+        return DocumentStatus.embeddings_completed
 
     while True:
         if docstatus_index(current_stage) >= docstatus_index(stop_at):
-            response_code, response_message = (
-                200,
-                "Document Fully Processed.",
-            )
             logger.info(current_stage.value)
             obj.stage = current_stage.value
-            logger.info(response_code)
-            logger.info(response_message)
-            await files_repo.update(obj)
-            await files_repo.session.commit()
+            await push_result_to_db()
             return None
         try:
             match current_stage:
@@ -290,7 +295,9 @@ async def process_file_raw(
                 case DocumentStatus.stage2:
                     current_stage = await process_stage_two()
                 case DocumentStatus.stage3:
-                    current_stage = await process_stage_three()
+                    current_stage = await create_summary()
+                case DocumentStatus.summarization_completed:
+                    current_stage = await process_embeddings()
                 case _:
                     raise Exception(
                         "Document was incorrectly added to database, \
@@ -298,8 +305,9 @@ async def process_file_raw(
                     "
                     )
         except Exception as e:
-            logger.error(f"Document errored out while processing stage: {current_stage.value}")
+            logger.error(
+                f"Document errored out while processing stage: {current_stage.value}"
+            )
             obj.stage = current_stage.value
-            await files_repo.update(obj)
-            await files_repo.session.commit()
+            await push_result_to_db()
             raise e
