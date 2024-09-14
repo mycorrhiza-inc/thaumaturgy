@@ -10,7 +10,10 @@ from litestar.di import Provide
 
 from util.logging import logging_config
 
-from routing.daemon_controller import DaemonController
+from routing.docproc_controller import DocumentProcesserController
+
+from routing.encounter_controller import EncounterController
+
 
 from background_loops import initialize_background_loops
 
@@ -40,7 +43,7 @@ cors_config = CORSConfig(allow_origins=["*"])
 
 api_router = Router(
     path="/thaumaturgy/api/v1",
-    route_handlers=[DaemonController],
+    route_handlers=[DocumentProcesserController, EncounterController],
 )
 
 app = Litestar(
