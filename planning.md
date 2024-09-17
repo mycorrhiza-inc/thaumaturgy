@@ -4,6 +4,8 @@ What do I need to actually get started working?
 
 - Attaching an associated organisation to a document, and/or creating if one does not exist.
 
+- Manually starting an Encounter, with a given list of documents, and a description.
+
 
 
 

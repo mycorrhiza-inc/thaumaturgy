@@ -87,7 +87,7 @@ class DaemonState(BaseModel):
     clear_queue: Optional[bool] = None
 
 
-class DocumentProcesserController(Controller):
+class TaskDaemon(Controller):
     @post(path="/dangerous/docproc/control_background_processing_daemon")
     async def control_background_processing_daemon(self, data: DaemonState) -> str:
         daemon_toggle = data.enable_background_processing
