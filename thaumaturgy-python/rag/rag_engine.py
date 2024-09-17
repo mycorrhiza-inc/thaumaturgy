@@ -10,7 +10,7 @@ from logic.databaselogic import get_files_from_uuids
 import nest_asyncio
 import asyncio
 
-from models.chats import ChatRole, KeChatMessage, sanitzie_chathistory_llamaindex
+from common.chat_schemas import ChatRole, KeChatMessage, sanitzie_chathistory_llamaindex
 from rag.SemanticSplitter import split_by_max_tokensize
 from rag.llamaindex import get_llm_from_model_str
 from vecstore.search import search
@@ -150,63 +150,3 @@ class KeRagEngine:
         combined_summaries_prompt = KeChatMessage(ChatRole.user, "\n".join(summaries))
         final_summary = await self.achat([cohere_message, combined_summaries_prompt])
         return final_summary.content
-
-    async def does_chat_need_query(self, chat_history: List[KeChatMessage]) -> bool:
-        does_chat_need_query = 'Please determine if you need to query a vector database of relevant documents to answer the user. Answer with only a "yes" or "no".'
-        check_message = KeChatMessage(
-            role=ChatRole.assistant, content=does_chat_need_query
-        )
-
-        def check_yes_no(test_str: str) -> bool:
-            test_str = test_str.lower()
-            if test_str.startswith("yes"):
-                return True
-            if test_str.startswith("no"):
-                return False
-            raise ValueError("Expected yes or no got: " + test_str)
-
-        return check_yes_no((await self.achat(chat_history + [check_message])).content)
-
-    async def rag_achat(
-        self,
-        chat_history: List[KeChatMessage],
-        files_repo: FileRepository,
-        logger: Optional[logging.Logger] = None,
-    ) -> Tuple[KeChatMessage, List[FileSchema]]:
-        if logger is None:
-            logger = default_logger
-        if not await self.does_chat_need_query(chat_history):
-            return await self.achat(chat_history)
-
-        async def generate_query_from_chat_history(
-            chat_history: List[KeChatMessage],
-        ) -> str:
-            querygen_addendum = KeChatMessage(
-                role=ChatRole.system, content=generate_query_from_chat_history_prompt
-            )
-            completion = await self.achat(chat_history + [querygen_addendum])
-            return completion
-
-        def generate_context_msg_from_search_results(
-            search_results: List[Any], max_results: int = 3
-        ) -> KeChatMessage:
-            logger = default_logger
-            res = search_results[0]
-            res = res[:max_results]
-            return_prompt = "Here is a list of documents that might be relevant to the following chat:"
-            # TODO: Refactor for less checks and ugliness
-            for result in res:
-                uuid_str = result["entity"]["source_id"]
-                text = result["entity"]["text"]
-                return_prompt += f"\n\n{uuid_str}:\n{text}"
-            return KeChatMessage(role=ChatRole.assistant, content=return_prompt)
-
-        query = await generate_query_from_chat_history(chat_history)
-        res = search(query=query, output_fields=["source_id", "text"])
-        logger.info(res)
-        context_msg = generate_context_msg_from_search_results(res)
-        # TODO: Get these 2 async func calls to happen simultaneously
-        final_message = await self.achat([context_msg] + chat_history)
-        return_schemas = await convert_search_results_to_frontend_table(res, files_repo)
-
-        return (final_message, return_schemas)

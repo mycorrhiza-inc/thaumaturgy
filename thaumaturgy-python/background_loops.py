@@ -21,47 +21,60 @@ import traceback
 
 from constants import (
     REDIS_BACKGROUND_DAEMON_TOGGLE,
-    REDIS_BACKGROUND_DOCPROC_KEY,
     REDIS_HOST,
     REDIS_PORT,
     REDIS_CURRENTLY_PROCESSING_DOCS,
     REDIS_BACKGROUND_PROCESSING_STOPS_AT,
-    REDIS_PRIORITY_DOCPROC_KEY,
 )
 
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 default_logger = logging.getLogger(__name__)
 
+# I dont think this does anything waiting to remove it.
+# async def background_processing_loop() -> None:
+#     await asyncio.sleep(
+#         30
+#     )  # Wait 30 seconds until application has finished loading to start processing background docs
+#     default_logger.info(
+#         "Starting the daemon that adds more background documents to process."
+#     )
+#
+#     redis_client.set(REDIS_BACKGROUND_DAEMON_TOGGLE, 0)
+#
+#     async def activity():
+#         if redis_client.get(REDIS_BACKGROUND_DAEMON_TOGGLE) == 0:
+#             await asyncio.sleep(300)
+#             return None
+#         else:
+#             await asyncio.sleep(300)
+#
+#     # Logic to force it to process each loop sequentially
+#     result = None
+#     while result is None:
+#         try:
+#             result = await activity()
+#         except Exception as e:
+#             tb = traceback.format_exc()
+#             default_logger.error("Encountered error while processing a document")
+#             default_logger.error(e)
+#             default_logger.error(tb)
+#             await asyncio.sleep(2)
+#             result = None
 
-async def background_processing_loop() -> None:
-    await asyncio.sleep(
-        30
-    )  # Wait 30 seconds until application has finished loading to start processing background docs
-    default_logger.info(
-        "Starting the daemon that adds more background documents to process."
-    )
 
-    redis_client.set(REDIS_BACKGROUND_DAEMON_TOGGLE, 0)
+class TaskType(str, Enum):
+    add_file = "add_file"
+    process_existing_file = "process_existing_file"
 
-    async def activity():
-        if redis_client.get(REDIS_BACKGROUND_DAEMON_TOGGLE) == 0:
-            await asyncio.sleep(300)
-            return None
-        else:
-            await asyncio.sleep(300)
 
-    # Logic to force it to process each loop sequentially
-    result = None
-    while result is None:
-        try:
-            result = await activity()
-        except Exception as e:
-            tb = traceback.format_exc()
-            default_logger.error("Encountered error while processing a document")
-            default_logger.error(e)
-            default_logger.error(tb)
-            await asyncio.sleep(2)
-            result = None
+class Task(BaseModel):
+    id: UUID = UUID()
+    task_type: TaskType
+    kwargs: dict
+    created_at: datetime = datetime.now()
+    updated_at: datetime | None = None
+    error: str | None = None
+    completed: bool = False
 
 
 # Returns a bool depending on if it was actually able to add numdocs
@@ -138,10 +151,17 @@ async def main_processing_loop() -> None:
 
 def initialize_background_loops() -> None:
     asyncio.create_task(main_processing_loop())
-    asyncio.create_task(background_processing_loop())
 
 
-async def process_document(doc_id_str: str, stop_at: str) -> None:
+async def execute_task(task: Task) -> None:
+    if task.task_type == TaskType.add_file:
+        raise Exception("Not implemented")
+
+    elif task.task_type == TaskType.process_existing_file:
+        await process_existing_file(**task.kwargs)
+
+
+async def process_existing_file(doc_id_str: str, stop_at: str) -> None:
     logger = default_logger
     logger.info(f"Executing background docproc on {doc_id_str} to {stop_at}")
     stop_at = DocumentStatus(stop_at)
