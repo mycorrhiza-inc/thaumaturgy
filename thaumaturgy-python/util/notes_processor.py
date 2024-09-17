@@ -19,28 +19,29 @@ class TranscribedNote(BaseModel):
 llm = KeRagEngine("llama70b")
 
 
+# Moving this to another file might be a good idea. Plus throwing the semantic splitter to split on sentnaces is probably a good idea.
+async def mapreduce_llm_instruction_across_string(
+    content: str, chunk_size: int, instruction: str, join_str: str
+) -> str:
+    split = token_split(content, chunk_size)
+
+    async def clean_chunk(chunk: str) -> str:
+
+        history = [
+            KeChatMessage(content=instruction, role=ChatRole.assistant),
+            KeChatMessage(content=chunk, role=ChatRole.user),
+        ]
+        completion = await llm.achat(history)
+        return completion.content
+
+    tasks = [clean_chunk(chunk) for chunk in split]
+    results = await asyncio.gather(*tasks)
+    return join_str.join(results)
+
+
 async def process_note_task(
     filepath: Path, lang: Optional[str] = None
 ) -> TranscribedNote:
-    # Moving this to another file might be a good idea. Plus throwing the semantic splitter to split on sentnaces is probably a good idea.
-    async def mapreduce_llm_instruction_across_string(
-        content: str, chunk_size: int, instruction: str, join_str: str
-    ) -> str:
-        split = token_split(content, chunk_size)
-
-        async def clean_chunk(chunk: str) -> str:
-
-            history = [
-                KeChatMessage(content=instruction, role=ChatRole.assistant),
-                KeChatMessage(content=chunk, role=ChatRole.user),
-            ]
-            completion = await llm.achat(history)
-            return completion.content
-
-        tasks = [clean_chunk(chunk) for chunk in split]
-        results = await asyncio.gather(*tasks)
-        return join_str.join(results)
-
     TRANSCRIPT_CHUNK_SIZE = 1024
     NOTE_CHUNK_SIZE = 4096
     if lang is None:
@@ -58,7 +59,7 @@ async def process_note_task(
     create_notes_prompt = "You are a note taking assistant. Please take in the transcript provided by the user and return detailed notes that outlines the key points of the discussion. Make sure to take note of anything the group came to concensus on, any items on the agenda for the meeting and any action items that the group decided to take."
     notes = await mapreduce_llm_instruction_across_string(
         content=clean_transcript,
-        chunk_size=NOTE_CHUNK_SIZE,
+        chunk_size=TRANSCRIPT_CHUNK_SIZE,
         instruction=create_notes_prompt,
         join_str="\n",
     )
