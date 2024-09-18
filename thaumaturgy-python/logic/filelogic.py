@@ -1,5 +1,6 @@
 from typing_extensions import Doc
-from common.file_schemas import FileSchemaFull
+from common.file_schemas import FileSchemaFull, FileTextSchema
+from common.llm_utils import KeLLMUtils
 from vecstore.docprocess import add_document_to_db
 import os
 from pathlib import Path
@@ -191,9 +192,12 @@ async def process_file_raw(
     logger.info(type(obj))
     logger.info(obj)
     current_stage = DocumentStatus(obj.stage)
+    llm = KeLLMUtils("llama70b")  # M6yabe replace with something cheeper.
     logger.info(obj.doctype)
     mdextract = MarkdownExtractor(logger, OS_TMPDIR, priority=priority)
     file_manager = S3FileManager(logger=logger)
+    text = {}
+    text_list = []
     doc_metadata = obj.mdata
     # Move back to stage 1 after all files are in s3 to save bandwith
     file_path = file_manager.generate_local_filepath_from_hash(obj.hash)
@@ -221,13 +225,22 @@ async def process_file_raw(
         )
         assert isinstance(processed_original_text, str)
         logger.info("Backed up markdown text")
+        text_list.append(
+            FileTextSchema(
+                file_id=source_id,
+                is_original_text=True,
+                language=obj.lang,
+                text=processed_original_text,
+            )
+        )
         if obj.lang == "en":
             # Write directly to the english text box if
             # original text is identical to save space.
-            obj.english_text = processed_original_text
+            text["english_text"] = processed_original_text
             # Skip translation stage if text already english.
             return DocumentStatus.stage3
         else:
+            text["original_text"] = processed_original_text
             obj.original_text = processed_original_text
             return DocumentStatus.stage2
 
@@ -235,10 +248,17 @@ async def process_file_raw(
     async def process_stage_two():
         if obj.lang != "en":
             try:
-                processed_english_text = mdextract.convert_text_into_eng(
-                    obj.original_text, obj.lang
+                text["english_text"] = mdextract.convert_text_into_eng(
+                    text["original_text"], obj.lang
                 )
-                obj.english_text = processed_english_text
+                text_list.append(
+                    FileTextSchema(
+                        file_id=source_id,
+                        is_original_text=False,
+                        language="en",
+                        text=text["english_text"],
+                    )
+                )
             except Exception as e:
                 raise Exception(
                     "failure in stage 2: \ndocument was unable to be translated to english.",
@@ -274,6 +294,16 @@ async def process_file_raw(
         return DocumentStatus.embeddings_completed
 
     async def create_summary():
+        long_summary = await llm.summarize_mapreduce(text["english_text"])
+        obj.summary = long_summary
+        short_sum_instruct = (
+            "Take this long summary and condense it into a 1-2 sentance short summary."
+        )
+        short_summary = await llm.simple_instruct(
+            content=long_summary, instruct=short_sum_instruct
+        )
+        obj.short_summary = short_summary
+
         return DocumentStatus.summarization_completed
 
         # await the json if async
