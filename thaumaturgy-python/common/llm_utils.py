@@ -1,3 +1,20 @@
+from litestar.contrib.sqlalchemy.base import UUIDAuditBase
+
+from sqlalchemy.orm import Mapped
+
+
+from typing import Optional, List, Union, Dict
+
+from pydantic import BaseModel
+
+import hashlib
+
+from llama_index.core.llms import ChatMessage as LlamaChatMessage
+
+from enum import Enum
+from pathlib import Path
+
+
 from llama_index.llms.openai import OpenAI
 from llama_index.core import PromptTemplate
 
@@ -10,7 +27,6 @@ from logic.databaselogic import get_files_from_uuids
 import nest_asyncio
 import asyncio
 
-from common.llm_utils import ChatRole, KeChatMessage, sanitzie_chathistory_llamaindex
 from rag.SemanticSplitter import split_by_max_tokensize
 from rag.llamaindex import get_llm_from_model_str
 from vecstore.search import search
@@ -18,7 +34,7 @@ from vecstore.search import search
 import logging
 
 
-from models.files import FileRepository, FileSchema, model_to_schema
+from models.files import FileRepository, FileSchema, file_model_to_schema
 
 from vecstore import search
 
@@ -61,44 +77,65 @@ query_str = (
 default_logger = logging.getLogger(__name__)
 
 
-def strip_links_and_tables(markdown_text):
-    # Remove markdown links
-    no_links = re.sub(r"\[.*?\]\(.*?\)", "", markdown_text)
-    # Remove markdown tables
-    no_tables = re.sub(r"\|.*?\|", "", no_links)
-    return no_tables
+class RAGChat(BaseModel):
+    model: Optional[str] = None
+    chat_history: List[Dict[str, str]]
 
 
-async def convert_search_results_to_frontend_table(
-    search_results: List[Any],
-    files_repo: FileRepository,
-    max_results: int = 10,
-    include_text: bool = True,
-):
-    logger = default_logger
-    res = search_results[0]
-    res = res[:max_results]
-    uuid_list = []
-    text_list = []
-    # TODO: Refactor for less checks and ugliness
-    for result in res:
-        logger.info(result)
-        logger.info(result["entity"])
-        uuid = UUID(result["entity"]["source_id"])
-        uuid_list.append(uuid)
-        if include_text:
-            text_list.append(result["entity"]["text"])
-            # text_list.append(lemon_text)
-    file_models = await get_files_from_uuids(files_repo, uuid_list)
-    file_results = list(map(model_to_schema, file_models))
-    if include_text:
-        for index in range(len(file_results)):
-            file_results[index].display_text = text_list[index]
-
-    return file_results
+class ChatRole(str, Enum):
+    user = "user"
+    system = "system"
+    assistant = "assistant"
 
 
-class KeRagEngine:
+class KeChatMessage(BaseModel):
+    content: str
+    role: ChatRole
+
+
+# Do something with the chat message validation maybe, probably not worth it
+def sanitzie_chathistory_llamaindex(chat_history: List) -> List[LlamaChatMessage]:
+    def sanitize_message(raw_message: Union[dict, KeChatMessage]) -> LlamaChatMessage:
+        if isinstance(raw_message, KeChatMessage):
+            raw_message = cm_to_dict(raw_message)
+        return LlamaChatMessage(
+            role=raw_message["role"], content=raw_message["content"]
+        )
+
+    return list(map(sanitize_message, chat_history))
+
+
+def dict_to_cm(input_dict: Union[dict, KeChatMessage]) -> KeChatMessage:
+    if isinstance(input_dict, KeChatMessage):
+        return input_dict
+    return KeChatMessage(
+        content=input_dict["content"], role=ChatRole(input_dict["role"])
+    )
+
+
+def cm_to_dict(cm: KeChatMessage) -> Dict[str, str]:
+    return {"content": cm.content, "role": cm.role.value}
+
+
+def unvalidate_chat(chat_history: List[KeChatMessage]) -> List[Dict[str, str]]:
+    return list(map(cm_to_dict, chat_history))
+
+
+def validate_chat(chat_history: List[Dict[str, str]]) -> List[KeChatMessage]:
+    return list(map(dict_to_cm, chat_history))
+
+
+def force_conform_chat(chat_history: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    chat_history = list(chat_history)
+    for chat in chat_history:
+        if not chat.get("role") in ["user", "system", "assistant"]:
+            chat["role"] = "system"
+        if not isinstance(chat.get("message"), str):
+            chat["message"] = str(chat.get("message"))
+    return chat_history
+
+
+class KeLLMUtils:
     def __init__(self, llm: Union[str, Any]) -> None:
         if llm == "":
             llm = None

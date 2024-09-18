@@ -1,4 +1,4 @@
-from common.chat_schemas import ChatRole, KeChatMessage
+from common.llm_utils import ChatRole, KeChatMessage
 from rag.rag_engine import KeRagEngine
 from util.gpu_compute_calls import audio_to_text_api
 from pydantic import BaseModel
