@@ -1,5 +1,3 @@
-from typing import Optional, List, Union, Dict
-
 from pydantic import BaseModel
 
 
@@ -11,7 +9,7 @@ from enum import Enum
 from pathlib import Path
 
 
-from typing import Optional, List, Union, Any, Tuple
+from typing import Optional, List, Union, Any, Tuple, Dict
 
 import asyncio
 
@@ -21,7 +19,6 @@ import logging
 
 from llama_index.llms.groq import Groq
 from llama_index.llms.openai import OpenAI
-from llama_index.llms.octoai import OctoAI
 from llama_index.llms.fireworks import Fireworks
 
 
@@ -48,6 +45,18 @@ def get_llm_from_model_str(model_name: Optional[str]):
         return OpenAI(model=model_name, request_timeout=60.0, api_key=OPENAI_API_KEY)
     else:
         raise Exception("Model String Invalid or Not Supported")
+
+
+valid_model_names = [
+    "llama-8b",
+    "llama-3.1-8b-instant",
+    "llama-70b",
+    "llama3-70b-8192",
+    "llama-3.1-70b-versatile",
+    "llama-405b",
+    "llama-3.1-405b-reasoning",
+    "gpt-4o",
+]
 
 
 qa_prompt = (
