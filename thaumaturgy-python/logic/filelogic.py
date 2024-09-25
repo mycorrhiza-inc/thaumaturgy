@@ -1,5 +1,6 @@
 from typing_extensions import Doc
-from common.file_schemas import FileSchemaFull
+from common.file_schemas import FileSchemaFull, FileTextSchema
+from common.llm_utils import KeLLMUtils
 from vecstore.docprocess import add_document_to_db
 import os
 from pathlib import Path
@@ -46,14 +47,44 @@ import asyncio
 import aiohttp
 
 
+import logging
+
+default_logger = logging.getLogger(__name__)
+
+
+async def does_exist_file_with_hash(hash: str) -> bool:
+    raise Exception("Deduplication not implemented on server")
+    url = f"{KESSLER_URL}/file/get-by-hash/{hash}"
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            response_dict = await response.json()
+    return bool(response_dict.get("exists"))
+
+
+async def upsert_full_file_to_db(obj: FileSchemaFull) -> bool:
+    url = f"{KESSLER_URL}/api/v1/thaumaturgy/upsert_file"
+    json_data = obj.dict()
+    json_data["id"] = str(obj.id)
+    for _ in range(5):
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=json_data) as response:
+                response_code = response.status
+                if response_code >= 200 and response_code < 300:
+                    return True
+        await asyncio.sleep(10)
+    raise Exception(
+        "Tried 5 times to commit file to DB and failed. TODO: SAVE AND BACKUP THE FILE TO REDIS OR SOMETHING IF THIS FAILS."
+    )
+
+
 async def add_file_raw(
     tmp_filepath: Path,
     metadata: dict,
     process: bool,  # Figure out how to pass in a boolean as a query paramater
-    override_hash: bool,
-    files_repo: FileRepository,
-    logger: Any,
+    check_duplicate: bool = False,
 ) -> FileSchema:
+    logger = default_logger
     docingest = DocumentIngester(logger)
     file_manager = S3FileManager(logger=logger)
 
@@ -91,50 +122,23 @@ async def add_file_raw(
 
     os.remove(tmp_filepath)
 
-    # NOTE: this is a dangeous query
-    # NOTE: Nicole- Also this doesnt allow for files with the same hash to have different metadata,
-    # Scrapping it is a good idea, it was designed to solve some issues I had during testing and adding the same dataset over and over
-    # FIX: fix this to not allow for users to DOS files
-    query = select(FileModel).where(FileModel.hash == filehash)
-
-    duplicate_file_objects = await files_repo.session.execute(query)
-    duplicate_file_obj = duplicate_file_objects.scalar()
-
-    if override_hash is True and duplicate_file_obj is not None:
-        try:
-            await files_repo.delete(duplicate_file_obj.id)
-        except Exception:
-            pass
-        duplicate_file_obj = None
-
-    if duplicate_file_obj is None:
-        file_manager.backup_metadata_to_hash(metadata, filehash)
-        metadata_str = json.dumps(metadata)
-        new_file = FileModel(
-            url="N/A",
-            name=metadata.get("title"),
-            doctype=metadata.get("doctype"),
-            lang=metadata.get("lang"),
-            source=metadata.get("source"),
-            mdata=metadata_str,
-            stage=(DocumentStatus.unprocessed).value,
-            hash=filehash,
-            summary=None,
-            short_summary=None,
-        )
-        logger.info("new file:{file}".format(file=new_file.to_dict()))
-        new_file = await files_repo.add(new_file)
-        logger.info("added file!~")
-        await files_repo.session.commit()
-        logger.info("commited file to DB")
-
-    else:
-        logger.info(type(duplicate_file_obj))
-        logger.info(
-            f"File with identical hash already exists in DB with uuid:\
-            {duplicate_file_obj.id}"
-        )
-        new_file = duplicate_file_obj
+    if check_duplicate:
+        if does_exist_file_with_hash(filehash):
+            raise Exception("File Already exists in DB, erroring out.")
+    file_manager.backup_metadata_to_hash(metadata, filehash)
+    new_file = FileSchemaFull(
+        id=UUID(),
+        url="N/A",
+        name=metadata.get("title"),
+        doctype=metadata.get("doctype"),
+        lang=metadata.get("lang"),
+        source=metadata.get("source"),
+        mdata=metadata,
+        stage=(DocumentStatus.unprocessed).value,
+        hash=filehash,
+        summary=None,
+        short_summary=None,
+    )
 
     if process:
         logger.info("Processing File")
@@ -142,35 +146,42 @@ async def add_file_raw(
         # TODO : It doesnt work, for now its fine and also doesnt compete with the daemon for resources. Fix later
         # TODO : Add passthrough for low priority file processing with a daemon in the background
         # since this is a sync main thread call, give it priority
-        await process_file_raw(new_file, files_repo, logger, None, True)
-
+        await process_file_raw(new_file)
+    else:
+        await upsert_full_file_to_db(new_file)
     return new_file
+
+
+async def fetch_full_file_from_server(file_id: UUID) -> FileSchemaFull:
+    logger = default_logger
+    logger.info("fetching full file from server")
+    url = f"{KESSLER_URL}/api/v1/thaumaturgy/full_file/{file_id}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            converted_fileschema = FileSchemaFull(**await response.json())
+    return converted_fileschema
 
 
 async def process_fileid_raw(
     file_id_str: str,
-    files_repo: FileRepository,
-    logger: Any,
     stop_at: Optional[DocumentStatus] = None,
     priority: bool = True,
 ):
     file_uuid = UUID(file_id_str)
-    logger.info(file_uuid)
-    obj = await files_repo.get(file_uuid)
-    return await process_file_raw(
-        obj, logger=logger, stop_at=stop_at, priority=priority
-    )
+    full_obj = await fetch_full_file_from_server(file_uuid)
+    return await process_file_raw(full_obj, stop_at=stop_at, priority=priority)
 
 
 async def process_file_raw(
     obj: Optional[FileSchemaFull],
-    logger: Any,
     stop_at: Optional[DocumentStatus] = None,
     priority: bool = True,
 ):
+    logger = default_logger
     if obj is None:
         obj = FileSchemaFull(id=UUID())
-    if obj.hash is None:
+    hash = obj.hash
+    if hash is None:
         raise Exception("You done fucked up, you forgot to pass in a hash")
     if obj.lang is None or obj.lang == "":
         raise Exception("You done fucked up, you forgot to pass in a language")
@@ -181,9 +192,12 @@ async def process_file_raw(
     logger.info(type(obj))
     logger.info(obj)
     current_stage = DocumentStatus(obj.stage)
+    llm = KeLLMUtils("llama70b")  # M6yabe replace with something cheeper.
     logger.info(obj.doctype)
     mdextract = MarkdownExtractor(logger, OS_TMPDIR, priority=priority)
     file_manager = S3FileManager(logger=logger)
+    text = {}
+    text_list = []
     doc_metadata = obj.mdata
     # Move back to stage 1 after all files are in s3 to save bandwith
     file_path = file_manager.generate_local_filepath_from_hash(obj.hash)
@@ -196,7 +210,6 @@ async def process_file_raw(
         # FIXME: Change to deriving the filepath from the uri.
         # This process might spit out new metadata that was embedded in the document, ignoring for now
         logger.info("Sending async request to pdf file.")
-        hash = obj.hash
         processed_original_text = (
             await mdextract.process_raw_document_into_untranslated_text_from_hash(
                 hash, doc_metadata
@@ -208,17 +221,26 @@ async def process_file_raw(
         )
         # FIXME: We should probably come up with a better backup protocol then doing everything with hashes
         file_manager.backup_processed_text(
-            processed_original_text, obj.hash, doc_metadata, OS_BACKUP_FILEDIR
+            processed_original_text, hash, doc_metadata, OS_BACKUP_FILEDIR
         )
         assert isinstance(processed_original_text, str)
         logger.info("Backed up markdown text")
+        text_list.append(
+            FileTextSchema(
+                file_id=source_id,
+                is_original_text=True,
+                language=obj.lang,
+                text=processed_original_text,
+            )
+        )
         if obj.lang == "en":
             # Write directly to the english text box if
             # original text is identical to save space.
-            obj.english_text = processed_original_text
+            text["english_text"] = processed_original_text
             # Skip translation stage if text already english.
             return DocumentStatus.stage3
         else:
+            text["original_text"] = processed_original_text
             obj.original_text = processed_original_text
             return DocumentStatus.stage2
 
@@ -226,10 +248,17 @@ async def process_file_raw(
     async def process_stage_two():
         if obj.lang != "en":
             try:
-                processed_english_text = mdextract.convert_text_into_eng(
-                    obj.original_text, obj.lang
+                text["english_text"] = mdextract.convert_text_into_eng(
+                    text["original_text"], obj.lang
                 )
-                obj.english_text = processed_english_text
+                text_list.append(
+                    FileTextSchema(
+                        file_id=source_id,
+                        is_original_text=False,
+                        language="en",
+                        text=text["english_text"],
+                    )
+                )
             except Exception as e:
                 raise Exception(
                     "failure in stage 2: \ndocument was unable to be translated to english.",
@@ -265,23 +294,17 @@ async def process_file_raw(
         return DocumentStatus.embeddings_completed
 
     async def create_summary():
-        raise Exception("Not Implemented: Summarization")
-        return DocumentStatus.summarization_completed
-
-    async def push_result_to_db() -> None:
-        url = KESSLER_URL + "/api/v1/thaumaturgy/upsert_file"
-        json_data = obj.dict()
-        json_data["id"] = str(obj.id)
-        for _ in range(5):
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=json_data) as response:
-                    response_code = response.status
-                    if response_code >= 200 and response_code < 300:
-                        return None
-            await asyncio.sleep(10)
-        raise Exception(
-            "Tried 5 times to commit file to DB and failed. TODO: SAVE AND BACKUP THE FILE TO REDIS OR SOMETHING IF THIS FAILS."
+        long_summary = await llm.summarize_mapreduce(text["english_text"])
+        obj.summary = long_summary
+        short_sum_instruct = (
+            "Take this long summary and condense it into a 1-2 sentance short summary."
         )
+        short_summary = await llm.simple_instruct(
+            content=long_summary, instruct=short_sum_instruct
+        )
+        obj.short_summary = short_summary
+
+        return DocumentStatus.summarization_completed
 
         # await the json if async
 
@@ -289,8 +312,8 @@ async def process_file_raw(
         if docstatus_index(current_stage) >= docstatus_index(stop_at):
             logger.info(current_stage.value)
             obj.stage = current_stage.value
-            await push_result_to_db()
-            return None
+            await upsert_full_file_to_db(obj)
+            return obj
         try:
             match current_stage:
                 case DocumentStatus.unprocessed:
@@ -315,5 +338,5 @@ async def process_file_raw(
                 f"Document errored out while processing stage: {current_stage.value}"
             )
             obj.stage = current_stage.value
-            await push_result_to_db()
+            await upsert_full_file_to_db(obj)
             raise e

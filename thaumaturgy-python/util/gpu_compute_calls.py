@@ -31,6 +31,52 @@ global_marker_server_urls = ["https://marker.kessler.xyz"]
 default_logger = logging.getLogger(__name__)
 
 
+async def audio_to_text_api(filepath: Path, source_lang: Optional[str]) -> str:
+    # The API endpoint you will be hitting
+    url = "https://api.openai.com/v1/audio/transcriptions"
+    # Open the file in binary mode
+    # Figure out way to do these http uploads async
+    # Also use speaker diarization.
+    with filepath.open("rb") as file:
+        # Define the multipart/form-data payload
+        files = {"file": (filepath.name, file, "application/octet-stream")}
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "multipart/form-data",
+        }
+        data = {"model": "whisper-1"}
+        if source_lang is not None:
+            data["language"] = source_lang
+
+        # Make the POST request with files
+        response = requests.post(url, headers=headers, files=files, data=data)
+        # Raise an exception if the request was unsuccessful
+        response.raise_for_status()
+
+    # Parse the JSON response
+    response_json = response.json()
+
+    # Extract the translated text from the JSON response
+    translated_text = response_json["text"]
+    return translated_text
+
+
+async def translate_text_api(
+    self, doctext: str, source_lang: Optional[str], target_lang: str
+) -> str:
+    url = f"{self.endpoint_url}/v0/translation/google-translate"
+    payload = {
+        "text": doctext,
+        "source_lang": source_lang,
+        "target_lang": target_lang,
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload) as response:
+            response.raise_for_status()
+            text = await response.json().get("text", [])
+            return text
+
+
 class GPUComputeEndpoint:
     def __init__(
         self,
@@ -110,122 +156,75 @@ class GPUComputeEndpoint:
                 poll_wait=3 + 57 * int(not priority),
             )
 
-    async def transcribe_pdf_filepath(
-        self,
-        filepath: Path,
-        external_process: bool = False,
-        priority=True,
-    ) -> str:
-        if external_process:
-            url = "https://www.datalab.to/api/v1/marker"
-            self.logger.info(
-                "Calling datalab api with key beginning with"
-                + self.datalab_api_key[0 : (len(self.datalab_api_key) // 5)]
-            )
-            headers = {"X-Api-Key": self.datalab_api_key}
-
-            with open(filepath, "rb") as file:
-                files = {
-                    "file": (filepath.name + ".pdf", file, "application/pdf"),
-                    "paginate": (None, True),
-                }
-                # data = {"langs": "en", "force_ocr": "false", "paginate": "true"}
-                with requests.post(url, files=files, headers=headers) as response:
-                    response.raise_for_status()
-                    # await the json if async
-                    data = response.json()
-                    request_check_url = data.get("request_check_url")
-
-                    if request_check_url is None:
-                        raise Exception(
-                            "Failed to get request_check_url from marker API response"
-                        )
-                    self.logger.info(
-                        "Got response from marker server, polling to see when file is finished processing."
-                    )
-                    return await self.pull_marker_endpoint_for_response(
-                        request_check_url=request_check_url,
-                        max_polls=200,
-                        poll_wait=3 + 57 * int(not priority),
-                    )
-        else:
-            base_url = global_marker_server_urls[0]
-            if priority:
-                query_str = "?priority=true"
-            else:
-                query_str = "?priority=false"
-            marker_url_endpoint = base_url + "/api/v1/marker" + query_str
-
-            with open(filepath, "rb") as file:
-                files = {
-                    "file": (filepath.name + ".pdf", file, "application/pdf"),
-                    # "paginate": (None, True),
-                }
-                # data = {"langs": "en", "force_ocr": "false", "paginate": "true"}
-                with requests.post(marker_url_endpoint, files=files) as response:
-                    response.raise_for_status()
-                    # await the json if async
-                    data = response.json()
-                    request_check_url_leaf = data.get("request_check_url_leaf")
-
-                    if request_check_url_leaf is None:
-                        raise Exception(
-                            "Failed to get request_check_url from marker API response"
-                        )
-                    request_check_url = base_url + request_check_url_leaf
-                    self.logger.info(
-                        f"Got response from marker server, polling to see when file is finished processing at url: {request_check_url}"
-                    )
-                    return await self.pull_marker_endpoint_for_response(
-                        request_check_url=request_check_url,
-                        max_polls=200,
-                        poll_wait=3 + 57 * int(not priority),
-                    )
-
-    def audio_to_text_raw(self, filepath: Path, source_lang: Optional[str]) -> str:
-        # The API endpoint you will be hitting
-        url = "https://api.openai.com/v1/audio/transcriptions"
-        # Open the file in binary mode
-        with filepath.open("rb") as file:
-            # Define the multipart/form-data payload
-            files = {"file": (filepath.name, file, "application/octet-stream")}
-            headers = {
-                "Authorization": f"Bearer {OPENAI_API_KEY}",
-                "Content-Type": "multipart/form-data",
-            }
-            data = {"model": "whisper-1"}
-            if source_lang is not None:
-                data["language"] = source_lang
-
-            # Make the POST request with files
-            response = requests.post(url, headers=headers, files=files, data=data)
-            # Raise an exception if the request was unsuccessful
-            response.raise_for_status()
-
-        # Parse the JSON response
-        response_json = response.json()
-
-        # Extract the translated text from the JSON response
-        translated_text = response_json["text"]
-        return translated_text
-
-    def audio_to_text(
-        self,
-        filepath: Path,
-        source_lang: Optional[str] = None,
-    ) -> str:
-        return self.audio_to_text_raw(filepath, source_lang)
-
-    def translate_text(
-        self, doctext: str, source_lang: Optional[str], target_lang: str
-    ) -> str:
-        url = f"{self.endpoint_url}/v0/translation/google-translate"
-        payload = {
-            "text": doctext,
-            "source_lang": source_lang,
-            "target_lang": target_lang,
-        }
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-        text = response.json().get("text", [])
-        return text
+    # Commenting out, we should never need  to use datalab.
+    # async def transcribe_pdf_filepath(
+    #     self,
+    #     filepath: Path,
+    #     external_process: bool = False,
+    #     priority=True,
+    # ) -> str:
+    #     if external_process:
+    #         url = "https://www.datalab.to/api/v1/marker"
+    #         self.logger.info(
+    #             "Calling datalab api with key beginning with"
+    #             + self.datalab_api_key[0 : (len(self.datalab_api_key) // 5)]
+    #         )
+    #         headers = {"X-Api-Key": self.datalab_api_key}
+    #
+    #         with open(filepath, "rb") as file:
+    #             files = {
+    #                 "file": (filepath.name + ".pdf", file, "application/pdf"),
+    #                 "paginate": (None, True),
+    #             }
+    #             # data = {"langs": "en", "force_ocr": "false", "paginate": "true"}
+    #             with requests.post(url, files=files, headers=headers) as response:
+    #                 response.raise_for_status()
+    #                 # await the json if async
+    #                 data = response.json()
+    #                 request_check_url = data.get("request_check_url")
+    #
+    #                 if request_check_url is None:
+    #                     raise Exception(
+    #                         "Failed to get request_check_url from marker API response"
+    #                     )
+    #                 self.logger.info(
+    #                     "Got response from marker server, polling to see when file is finished processing."
+    #                 )
+    #                 return await self.pull_marker_endpoint_for_response(
+    #                     request_check_url=request_check_url,
+    #                     max_polls=200,
+    #                     poll_wait=3 + 57 * int(not priority),
+    #                 )
+    #     else:
+    #         base_url = global_marker_server_urls[0]
+    #         if priority:
+    #             query_str = "?priority=true"
+    #         else:
+    #             query_str = "?priority=false"
+    #         marker_url_endpoint = base_url + "/api/v1/marker" + query_str
+    #
+    #         with open(filepath, "rb") as file:
+    #             files = {
+    #                 "file": (filepath.name + ".pdf", file, "application/pdf"),
+    #                 # "paginate": (None, True),
+    #             }
+    #             # data = {"langs": "en", "force_ocr": "false", "paginate": "true"}
+    #             with requests.post(marker_url_endpoint, files=files) as response:
+    #                 response.raise_for_status()
+    #                 # await the json if async
+    #                 data = response.json()
+    #                 request_check_url_leaf = data.get("request_check_url_leaf")
+    #
+    #                 if request_check_url_leaf is None:
+    #                     raise Exception(
+    #                         "Failed to get request_check_url from marker API response"
+    #                     )
+    #                 request_check_url = base_url + request_check_url_leaf
+    #                 self.logger.info(
+    #                     f"Got response from marker server, polling to see when file is finished processing at url: {request_check_url}"
+    #                 )
+    #                 return await self.pull_marker_endpoint_for_response(
+    #                     request_check_url=request_check_url,
+    #                     max_polls=200,
+    #                     poll_wait=3 + 57 * int(not priority),
+    #                 )

@@ -47,6 +47,18 @@ def get_llm_from_model_str(model_name: Optional[str]):
         raise Exception("Model String Invalid or Not Supported")
 
 
+valid_model_names = [
+    "llama-8b",
+    "llama-3.1-8b-instant",
+    "llama-70b",
+    "llama3-70b-8192",
+    "llama-3.1-70b-versatile",
+    "llama-405b",
+    "llama-3.1-405b-reasoning",
+    "gpt-4o",
+]
+
+
 qa_prompt = (
     lambda context_str: f"""
 The following documents should be relevant to the conversation:

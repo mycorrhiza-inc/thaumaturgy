@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from pydantic import Field, field_validator, TypeAdapter
 
-from typing import Annotated, Any, List
+from typing import Annotated, Any, List, Dict
 
 
 from enum import Enum
@@ -32,7 +32,7 @@ class FileSchema(BaseModel):
     short_summary: str | None = None
     summary: str | None = None
     organization_id: UUID | None = None
-    mdata: dict | None = None
+    mdata: Dict[str, Any] = {}
     display_text: str | None = None
 
     # Good idea to do this for dict based mdata, instead wrote a custom function for it
@@ -54,7 +54,7 @@ class FileSchemaFull(BaseModel):
     short_summary: str | None = None
     summary: str | None = None
     organization_id: UUID | None = None
-    mdata: dict | None = None
+    mdata: Dict[str, Any] = {}
     texts: List[FileTextSchema] = []
     authors: List[IndividualSchema] = []
     organization: OrganizationSchema | None = None
