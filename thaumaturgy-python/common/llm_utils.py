@@ -147,11 +147,6 @@ def force_conform_chat(chat_history: List[Dict[str, str]]) -> List[Dict[str, str
     return chat_history
 
 
-class SplitInfo(BaseModel):
-    split_type: str
-    size: int
-
-
 class KeLLMUtils:
     def __init__(self, llm: Union[str, Any]) -> None:
         if llm == "":
@@ -179,34 +174,6 @@ class KeLLMUtils:
         str_response = remove_prefixes(str_response)
         return KeChatMessage(role=ChatRole.assistant, content=str_response)
 
-    async def summarize_single_chunk(self, markdown_text: str) -> str:
-        summarize_prompt = "Make sure to provide a well researched summary of the text provided by the user, if it appears to be the summary of a larger document, just summarize the section provided."
-        summarize_message = KeChatMessage(
-            role=ChatRole.system, content=summarize_prompt
-        )
-        text_message = KeChatMessage(role=ChatRole.user, content=markdown_text)
-        summary = await self.achat(
-            sanitzie_chathistory_llamaindex([summarize_message, text_message])
-        )
-        return summary.content
-
-    async def summarize_mapreduce(
-        self, markdown_text: str, max_tokensize: int = 8096
-    ) -> str:
-        splits = split_by_max_tokensize(markdown_text, max_tokensize)
-        if len(splits) == 1:
-            return await self.summarize_single_chunk(markdown_text)
-        summaries = await asyncio.gather(
-            *[self.summarize_single_chunk(chunk) for chunk in splits]
-        )
-        coherence_prompt = "Please rewrite the following list of summaries of chunks of the document into a final summary of similar length that incorperates all the details present in the chunks"
-        cohere_message = KeChatMessage(role=ChatRole.system, content=coherence_prompt)
-        combined_summaries_prompt = KeChatMessage(
-            role=ChatRole.user, content="\n".join(summaries)
-        )
-        final_summary = await self.achat([cohere_message, combined_summaries_prompt])
-        return final_summary.content
-
     async def simple_instruct(self, content: str, instruct: str) -> str:
         history = [
             KeChatMessage(content=instruct, role=ChatRole.system),
@@ -215,50 +182,75 @@ class KeLLMUtils:
         completion = await self.achat(history)
         return completion.content
 
-    async def split(
+    async def split_and_apply_instructions(
         self,
         content: str,
+        split_length: int,
         prior_instruction: Optional[str],
         post_instruction: Optional[str],
-        split_info: SplitInfo,
-    ) -> str:
+        split_type: str = "token",
+    ) -> List[str]:
         # Replace with semantic splitter
-        chunk_str_list = token_split(content, split_info.size)
+        match split_type:
+            case "token":
+                chunk_str_list = token_split(content, split_length)
+            case _:
+                chunk_str_list = token_split(content, split_length)
+        prior_prompt_list = []
+        if prior_instruction is not None and prior_instruction != "":
+            prior_prompt_list.append(
+                KeChatMessage(content=prior_instruction, role=ChatRole.system)
+            )
+        post_prompt_list = []
+        if post_instruction is not None and post_instruction != "":
+            post_prompt_list.append(
+                KeChatMessage(content=post_instruction, role=ChatRole.system)
+            )
 
         async def clean_chunk(chunk: str) -> str:
-            history = []
-            if prior_instruction is not None and prior_instruction != "":
-                history.append(
-                    KeChatMessage(content=prior_instruction, role=ChatRole.system)
-                )
-            history.append(KeChatMessage(content=chunk, role=ChatRole.user))
-            if post_instruction is not None and post_instruction != "":
-                history.append(
-                    KeChatMessage(content=post_instruction, role=ChatRole.system)
-                )
+            history = (
+                prior_prompt_list
+                + [KeChatMessage(content=chunk, role=ChatRole.user)]
+                + post_prompt_list
+            )
             completion = await self.llm.achat(history)
             return completion.content
 
         tasks = [clean_chunk(chunk) for chunk in chunk_str_list]
         results = await asyncio.gather(*tasks)
-        return
+        return results
 
-    # Refactor as a generalized
+    async def summarize_mapreduce(
+        self, markdown_text: str, max_tokensize: int = 8096
+    ) -> str:
+        summarize_instruction = "Make sure to provide a well researched summary of the text provided by the user, if it appears to be the summary of a larger document, just summarize the section provided."
+
+        summaries = await self.split_and_apply_instructions(
+            content=markdown_text,
+            split_length=max_tokensize,
+            prior_instruction=summarize_instruction,
+            post_instruction=None,
+            split_type="token",
+        )
+
+        coherence_prompt = "Please rewrite the following list of summaries of chunks of the document into a final summary of similar length that incorperates all the details present in the chunks"
+        cohere_message = KeChatMessage(role=ChatRole.system, content=coherence_prompt)
+        combined_summaries_prompt = KeChatMessage(
+            role=ChatRole.user, content="\n".join(summaries)
+        )
+        final_summary = await self.achat([cohere_message, combined_summaries_prompt])
+        return final_summary.content
+
+    # Mostly legacy at this point, do not include in any refactoring.
     async def mapreduce_llm_instruction_across_string(
         self, content: str, chunk_size: int, instruction: str, join_str: str
     ) -> str:
-        # Replace with semantic splitter
-        split = token_split(content, chunk_size)
 
-        async def clean_chunk(chunk: str) -> str:
-
-            history = [
-                KeChatMessage(content=instruction, role=ChatRole.system),
-                KeChatMessage(content=chunk, role=ChatRole.user),
-            ]
-            completion = await self.llm.achat(history)
-            return completion.content
-
-        tasks = [clean_chunk(chunk) for chunk in split]
-        results = await asyncio.gather(*tasks)
+        results = await self.split_and_apply_instructions(
+            content=content,
+            split_length=chunk_size,
+            prior_instruction=instruction,
+            post_instruction=None,
+            split_type="token",
+        )
         return join_str.join(results)
