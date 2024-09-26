@@ -147,6 +147,11 @@ def force_conform_chat(chat_history: List[Dict[str, str]]) -> List[Dict[str, str
     return chat_history
 
 
+class SplitInfo(BaseModel):
+    split_type: str
+    size: int
+
+
 class KeLLMUtils:
     def __init__(self, llm: Union[str, Any]) -> None:
         if llm == "":
@@ -210,6 +215,35 @@ class KeLLMUtils:
         completion = await self.achat(history)
         return completion.content
 
+    async def split(
+        self,
+        content: str,
+        prior_instruction: Optional[str],
+        post_instruction: Optional[str],
+        split_info: SplitInfo,
+    ) -> str:
+        # Replace with semantic splitter
+        chunk_str_list = token_split(content, split_info.size)
+
+        async def clean_chunk(chunk: str) -> str:
+            history = []
+            if prior_instruction is not None and prior_instruction != "":
+                history.append(
+                    KeChatMessage(content=prior_instruction, role=ChatRole.system)
+                )
+            history.append(KeChatMessage(content=chunk, role=ChatRole.user))
+            if post_instruction is not None and post_instruction != "":
+                history.append(
+                    KeChatMessage(content=post_instruction, role=ChatRole.system)
+                )
+            completion = await self.llm.achat(history)
+            return completion.content
+
+        tasks = [clean_chunk(chunk) for chunk in chunk_str_list]
+        results = await asyncio.gather(*tasks)
+        return
+
+    # Refactor as a generalized
     async def mapreduce_llm_instruction_across_string(
         self, content: str, chunk_size: int, instruction: str, join_str: str
     ) -> str:
