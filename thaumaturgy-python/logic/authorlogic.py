@@ -26,16 +26,6 @@ example_author_json = """{
     "employment_history": "Mentat Intern at House Atreides"
 }"""
 
-# empty_author_dict = {
-#     "name": "",
-#     "educational_history": "",
-#     "location": "",
-#     "email": "",
-#     "phone": "",
-#     "current_employment": "",
-#     "employment_history": "",
-# }
-
 
 class AuthorInformation(BaseModel):
     name: str = ""
@@ -48,7 +38,7 @@ class AuthorInformation(BaseModel):
 
 
 class AuthorExtraction:
-    def __init__(self, llm: Uimport copynion[str, KeLLMUtils]) -> None:
+    def __init__(self, llm: Union[str, KeLLMUtils]) -> None:
         if isinstance(llm, str):
             self.llm = KeLLMUtils(llm)
         else:
@@ -79,3 +69,15 @@ class AuthorExtraction:
         author_information = AuthorInformation(**response_dict)
 
         return author_information
+
+
+class AscertainPurpose:
+    def __init__(self, llm: Union[str, KeLLMUtils]) -> None:
+        if isinstance(llm, str):
+            self.llm = KeLLMUtils(llm)
+        else:
+            self.llm = llm
+            # invoke with await self.llm.achat(messages : List[KeChatMessage])
+
+    def get_purpose(self, document_text: str, author_info) -> str:
+        return "I am interested in the purpose of this document."
