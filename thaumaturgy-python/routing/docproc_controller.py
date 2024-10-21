@@ -87,18 +87,7 @@ class DaemonState(BaseModel):
     clear_queue: Optional[bool] = None
 
 
-class EncounterController(Controller):
-    @post(path="/v1/dangerous/docproc/control_background_processing_daemon")
-    async def control_background_processing_daemon(self, data: DaemonState) -> str:
-        daemon_toggle = data.enable_background_processing
-        stop_at = data.stop_at_background_docprocessing
-        clear_queue = data.clear_queue
-        if daemon_toggle is not None:
-            redis_client.set(REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE, int(daemon_toggle))
-        if stop_at is not None:
-            target = DocumentStatus(stop_at).value
-            redis_client.set(REDIS_DOCPROC_BACKGROUND_PROCESSING_STOPS_AT, target)
-        if clear_queue is not None:
-            if clear_queue:
-                clear_file_queue()
-        return "Success!"
+class DocumentProcesserController(Controller):
+    @get(path="/v1/test")
+    async def Test(self, data: DaemonState) -> str:
+        return "Hello World!"
