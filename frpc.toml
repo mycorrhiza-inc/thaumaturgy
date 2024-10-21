@@ -9,7 +9,7 @@ serverPort = 7000
 # customDomains = ["frpmedia.kessler.xyz"]
 
 [[proxies]]
-name = "webserver-secure"
+name = "thaumaturgy-secure"
 type = "https"
 localPort = 443
 localIP = "reverse-proxy"
