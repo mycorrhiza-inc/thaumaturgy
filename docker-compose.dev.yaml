@@ -38,7 +38,7 @@ services:
       - ${VOLUMES_DIRECTORY:-./volumes}/files:/files
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.thaumaturgy-python.rule=PathPrefix(`/alchemy/v1/`) "
+      - "traefik.http.routers.thaumaturgy-python.rule=PathPrefix(`/python/`) "
     command:
       - "uvicorn"
       - "main:app"

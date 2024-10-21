@@ -11,6 +11,6 @@ serverPort = 7000
 [[proxies]]
 name = "webserver-secure"
 type = "https"
-localPort = 1443
-localIP = "127.0.0.1"
-customDomains = ["frpmedia.kessler.xyz"]
+localPort = 443
+localIP = "reverse-proxy"
+customDomains = ["thaum.kessler.xyz"]
