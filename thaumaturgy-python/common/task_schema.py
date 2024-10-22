@@ -9,7 +9,7 @@ from enum import Enum
 
 
 class TaskType(str, Enum):
-    add_file = "add_file"
+    add_file_scraper = "add_file_scraper"
     process_existing_file = "process_existing_file"
 
 
@@ -47,10 +47,22 @@ class GolangUpdateDocumentInfo(BaseModel):
     doc_texts: list[DocTextInfo]
 
 
+class ScraperInfo(BaseModel):
+    file_url: str  # throw a get request at this url to get the file
+    name: str
+    published_date: str
+    internal_source_name: str
+    docket_id: str
+    author_organisation: str
+    file_class: str  # Decision, Public Comment, etc
+
+
 def create_task(obj: Any, priority: bool, kwargs: dict = {}) -> Optional[Task]:
     def determine_task_type(obj: Any) -> Optional[TaskType]:
         if isinstance(obj, GolangUpdateDocumentInfo):
             return TaskType.process_existing_file
+        if isinstance(obj, ScraperInfo):
+            return TaskType.add_file_scraper
 
         return None
 

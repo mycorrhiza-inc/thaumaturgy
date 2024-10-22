@@ -11,6 +11,7 @@ from litestar.handlers.http_handlers.decorators import (
 )
 
 
+from litestar.params import Parameter
 from typing import Optional
 
 
@@ -28,35 +29,14 @@ from constants import (
 from background_loops import clear_file_queue
 
 import redis
+import uuid
 
-from util.redis_utils import upsert_task, push_to_queue
+from util.redis_utils import get_task, push_to_queue
 
 redis_client = redis.Redis(REDIS_HOST, port=REDIS_PORT)
 
 
-# type DocTextInfo struct {
-# 	Language       string `json:"language"`
-# 	Text           string `json:"text"`
-# 	IsOriginalText bool   `json:"is_original_text"`
-# }
-#
-# type UpdateDocumentInfo struct {
-# 	Url          string         `json:"url"`
-# 	Doctype      string         `json:"doctype"`
-# 	Lang         string         `json:"lang"`
-# 	Name         string         `json:"name"`
-# 	Source       string         `json:"source"`
-# 	Hash         string         `json:"hash"`
-# 	Mdata        map[string]any `json:"mdata"`
-# 	Stage        string         `json:"stage"`
-# 	Summary      string         `json:"summary"`
-# 	ShortSummary string         `json:"short_summary"`
-# 	Private      bool           `json:"private"`
-# 	DocTexts     []DocTextInfo  `json:"doc_texts"`
-# }
-
-
-from common.task_schema import Task, create_task, GolangUpdateDocumentInfo
+from common.task_schema import ScraperInfo, Task, create_task, GolangUpdateDocumentInfo
 
 
 class DaemonState(BaseModel):
@@ -70,9 +50,30 @@ class DocumentProcesserController(Controller):
     async def Test(self) -> str:
         return "Hello World!"
 
+    @get(path="/status/{task_id:uuid}")
+    async def get_status(
+        self,
+        task_id: uuid.UUID = Parameter(title="Task ID", description="Task to retieve"),
+    ) -> Response:
+        task = get_task(task_id)
+        if task is None:
+            return Response(status_code=404, content="Task not found")
+        return Response(status_code=200, content=task)
+
     @post(path="/process-existing-document")
     async def process_existing_document_handler(
         self, data: GolangUpdateDocumentInfo, priority: bool
+    ) -> Task:
+        task = create_task(data, priority, kwargs={})
+        if task is None:
+            raise Exception("Unable to create task")
+        push_to_queue(task)
+        return task
+
+    # https://thaum.kessler.xyz/v1/process-scraped-doc
+    @post(path="/process-scraped-doc")
+    async def process_scraped_document_handler(
+        self, data: ScraperInfo, priority: bool
     ) -> Task:
         task = create_task(data, priority, kwargs={})
         if task is None:
