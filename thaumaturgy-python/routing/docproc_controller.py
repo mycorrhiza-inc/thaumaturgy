@@ -29,7 +29,7 @@ from background_loops import clear_file_queue
 
 import redis
 
-from util.redis_utils import upsert_task
+from util.redis_utils import upsert_task, push_to_queue
 
 redis_client = redis.Redis(REDIS_HOST, port=REDIS_PORT)
 
@@ -77,5 +77,5 @@ class DocumentProcesserController(Controller):
         task = create_task(data, priority, kwargs={})
         if task is None:
             raise Exception("Unable to create task")
-        upsert_task(task=task, redis_client=None)
+        push_to_queue(task)
         return task
