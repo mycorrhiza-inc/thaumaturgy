@@ -3,7 +3,6 @@ from common.file_schemas import FileSchemaFull, FileTextSchema
 from common.llm_utils import KeLLMUtils
 import os
 from pathlib import Path
-from typing import Any
 
 from sqlalchemy import select
 
@@ -20,7 +19,7 @@ from common.file_schemas import (
 from logic.docingest import DocumentIngester
 from logic.extractmarkdown import MarkdownExtractor
 
-from typing import List, Optional, Dict
+from typing import Optional
 
 
 # from routing.file_controller import QueryData

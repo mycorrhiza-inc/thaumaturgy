@@ -15,11 +15,9 @@ from constants import (
     REDIS_DOCPROC_PRIORITYQUEUE_KEY,
 )
 from common.file_schemas import FileSchema, DocumentStatus, docstatus_index
-from typing import List, Tuple, Any, Union, Optional, Dict
+from typing import List, Any, Union, Optional, Dict
 import redis
 import logging
-import sys
-import json
 from uuid import UUID
 from common.task_schema import Task
 

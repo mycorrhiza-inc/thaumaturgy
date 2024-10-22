@@ -1,4 +1,3 @@
-import re
 from common.misc_schemas import QueryData
 
 from common.file_schemas import DocumentStatus
@@ -10,7 +9,6 @@ from litestar.contrib.sqlalchemy.base import UUIDBase
 
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis
-from random import shuffle
 from util.redis_utils import (
     clear_file_queue,
     convert_model_to_results_and_push,
@@ -19,7 +17,6 @@ from util.redis_utils import (
 )
 import traceback
 
-from enum import Enum
 from constants import (
     REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE,
     REDIS_HOST,
@@ -28,9 +25,6 @@ from constants import (
 )
 
 from pydantic import BaseModel
-from datetime import datetime
-from typing import Any
-from uuid import UUID
 from common.task_schema import Task, TaskType
 
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)

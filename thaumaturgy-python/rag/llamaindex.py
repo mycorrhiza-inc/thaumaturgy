@@ -6,7 +6,7 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from typing import List, Tuple, Optional
+from typing import Optional
 
 # Import the FileModel from file.py
 

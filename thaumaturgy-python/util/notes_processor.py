@@ -5,7 +5,6 @@ from pathlib import Path
 from uuid import UUID
 from typing import Optional
 from common.niclib import token_split
-import asyncio
 
 
 class TranscribedNote(BaseModel):
