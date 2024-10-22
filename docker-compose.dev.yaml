@@ -54,6 +54,8 @@ services:
       - "--reload"
     expose:
       - 5505
+    ports:
+      - 5506:5505
 
   valkey:
     hostname: valkey
