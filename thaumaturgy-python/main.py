@@ -42,7 +42,7 @@ def plain_text_exception_handler(request: Request, exc: Exception) -> Response:
 cors_config = CORSConfig(allow_origins=["*"])
 
 api_router = Router(
-    path="/v1",
+    path="/v1/",
     route_handlers=[DocumentProcesserController, EncounterController],
 )
 

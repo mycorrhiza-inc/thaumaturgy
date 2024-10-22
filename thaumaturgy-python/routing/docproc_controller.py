@@ -88,6 +88,6 @@ class DaemonState(BaseModel):
 
 
 class DocumentProcesserController(Controller):
-    @get(path="/v1/test")
+    @get(path="/test")
     async def Test(self) -> str:
         return "Hello World!"

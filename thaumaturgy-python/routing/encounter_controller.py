@@ -88,7 +88,7 @@ class DaemonState(BaseModel):
 
 
 class EncounterController(Controller):
-    @post(path="/v1/dangerous/docproc/control_background_processing_daemon")
+    @post(path="/dangerous/docproc/control_background_processing_daemon")
     async def control_background_processing_daemon(self, data: DaemonState) -> str:
         daemon_toggle = data.enable_background_processing
         stop_at = data.stop_at_background_docprocessing
