@@ -15,7 +15,7 @@ services:
       - 80
       - 443
     ports:
-      - "80:80"
+      - 2443:443
       - "${PROXY_UI_PORT:-8084}:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

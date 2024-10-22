@@ -11,6 +11,6 @@ serverPort = 7000
 [[proxies]]
 name = "thaumaturgy-secure"
 type = "https"
-localPort = 443
-localIP = "reverse-proxy"
+localPort = 2443
+# localIP = "reverse-proxy"
 customDomains = ["thaum.kessler.xyz"]
