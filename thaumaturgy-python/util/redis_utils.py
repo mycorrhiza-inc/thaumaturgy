@@ -13,7 +13,7 @@ from constants import (
     REDIS_PORT,
     REDIS_DOCPROC_PRIORITYQUEUE_KEY,
 )
-from models.files import FileModel, FileRepository
+from models.files import FileSchema, FileRepository
 from common.file_schemas import FileSchema, DocumentStatus, docstatus_index
 from typing import List, Tuple, Any, Union, Optional, Dict
 import redis
@@ -60,10 +60,10 @@ def increment_doc_counter(
 
 
 def convert_model_to_results_and_push(
-    schemas: Union[FileModel, List[FileModel]],
+    schemas: Union[FileSchema, List[FileSchema]],
     redis_client: Optional[Any] = None,
 ) -> None:
-    def convert_model_to_results(schemas: List[FileModel]) -> list:
+    def convert_model_to_results(schemas: List[FileSchema]) -> list:
         return_list = []
         for schema in schemas:
             str_id = str(schema.id)
@@ -73,7 +73,7 @@ def convert_model_to_results_and_push(
 
     if redis_client is None:
         redis_client = default_redis_client
-    if isinstance(schemas, FileModel):
+    if isinstance(schemas, FileSchema):
         schemas = [schemas]
     id_list = convert_model_to_results(schemas)
     redis_client.rpush(REDIS_DOCPROC_QUEUE_KEY, *id_list)
@@ -90,7 +90,7 @@ def clear_file_queue(
 
 async def bulk_process_file_background(
     files_repo: FileRepository,
-    files: List[FileModel],
+    files: List[FileSchema],
     stop_at: DocumentStatus,
     max_documents: Optional[int] = None,
     logger: Optional[Any] = None,
@@ -115,7 +115,7 @@ async def bulk_process_file_background(
         redis_client.lrange(REDIS_DOCPROC_QUEUE_KEY, 0, -1)
     ) + sanitize(redis_client.lrange(REDIS_DOCPROC_PRIORITYQUEUE_KEY, 0, -1))
 
-    def should_process(file: FileModel) -> bool:
+    def should_process(file: FileSchema) -> bool:
         if not docstatus_index(file.stage) < docstatus_index(stop_at):
             return False
         # Set up a toggle for this at some point in time

@@ -9,7 +9,6 @@ from sqlalchemy.orm import sessionmaker
 from typing import List, Tuple, Optional
 
 # Import the FileModel from file.py
-from models.files import FileModel
 
 from llama_index.core import StorageContext
 from llama_index.core import VectorStoreIndex
@@ -106,198 +105,198 @@ file_table_name = "file"
 url = make_url(sync_postgres_connection_string)
 
 
-def get_hybrid_vector_store() -> MilvusVectorStore:
-    milvus_user = os.environ.get("MILVUS_VEC_USER")
-    milvus_pass = os.environ.get("MILVUS_VEC_PASS")
-    milvus_host = os.environ.get("MILVUS_HOST")
-
-    from vecstore.search import collection_name
-
-    hybrid_vector_store = MilvusVectorStore(
-        uri=milvus_host,
-        dim=1024,
-        overwrite=False,
-        # TODO: Change collection name for prod
-        collection_name=collection_name,
-        token=f"{milvus_user}:{milvus_pass}",
-    )
-    return hybrid_vector_store
-
-
-def get_storage_context() -> StorageContext:
-    hybrid_vector_store = get_hybrid_vector_store()
-    storage_context = StorageContext.from_defaults(vector_store=hybrid_vector_store)
-    return storage_context
-
-
-def create_hybrid_index() -> VectorStoreIndex:
-    hybrid_vector_store = get_hybrid_vector_store()
-
-    hybrid_index = VectorStoreIndex.from_vector_store(vector_store=hybrid_vector_store)
-
-    return hybrid_index
-
-
-def create_retriever(hybrid_index: VectorStoreIndex) -> QueryFusionRetriever:
-    vector_retriever = hybrid_index.as_retriever(
-        vector_store_query_mode="default",
-        similarity_top_k=5,
-    )
-    text_retriever = hybrid_index.as_retriever(
-        vector_store_query_mode="sparse",
-        similarity_top_k=5,
-    )
-    retriever = QueryFusionRetriever(
-        [vector_retriever, text_retriever],
-        similarity_top_k=5,
-        num_queries=1,
-        mode="relative_score",
-        use_async=False,
-    )
-
-    return retriever
-
-
-def create_query_engine(retriever: QueryFusionRetriever) -> RetrieverQueryEngine:
-    response_synthesizer = CompactAndRefine()
-    query_engine = RetrieverQueryEngine(
-        retriever=retriever,
-        response_synthesizer=response_synthesizer,
-    )
-
-    return query_engine
-
-
-hybrid_index = create_hybrid_index()
-retriever = create_retriever(hybrid_index)
-query_engine = create_query_engine(retriever)
-
-
-async def get_document_list_from_file_table() -> list:
-    async def query_file_table_for_all_rows() -> List[Tuple[str, dict]]:
-        # Create an async engine and session
-        engine = create_async_engine(async_postgres_connection_string, echo=True)
-        async_session_maker = sessionmaker(
-            engine, expire_on_commit=False, class_=AsyncSession
-        )
-
-        async with async_session_maker() as session:
-            # Create a query to select all rows
-            stmt = session.select(FileModel)
-            result = await session.execute(stmt)
-            file_rows = result.scalars().all()
-
-            documents = []
-            for file_row in file_rows:
-                if file_row.english_text is not None and isinstance(
-                    file_row.doc_metadata, dict
-                ):
-                    documents.append((file_row.english_text, file_row.doc_metadata))
-
-            return documents
-
-    documents = await query_file_table_for_all_rows()
-    document_list = []
-    for english_text, doc_metadata in documents:
-        if english_text is not None:
-            additional_document = Document(text=english_text, metadata=doc_metadata)
-            additional_document.doc_id = str(doc_metadata.get("hash"))
-            document_list.append(document_list)
-    return document_list
-
-
-def add_document_to_db(doc: Document) -> None:
-    # split the document into sentences
-    parser = SentenceWindowNodeParser(include_metadata=True)
-    nodes = parser.get_nodes_from_documents([doc])
-    hybrid_index.insert_nodes(nodes)
-
-
-def vecstore_metadata_error():
-    logger.error("No metadata found for document. Skipping.")
-    raise ValueError("No metadata found for document. Must include a source_id.")
-
-
-# WARN: DANGEROUS
-
-
-def add_document_to_db_from_text(text: str, metadata: Optional[dict] = None) -> None:
-    if metadata is None or metadata.get("source_id") is None:
-        logger.error("No metadata found for document. Skipping.")
-        raise ValueError("No metadata found for document. Must include a source_id.")
-
-    try:
-        document = Document(text=str(text), metadata=metadata)
-        add_document_to_db(document)
-    except Exception as e:
-        logger.error(f"Encountered error while adding document: {e}")
-        logger.error("Trying again with no metadata")
-        document = Document(text=str(text))
-        add_document_to_db(document)
-    return None
-
-
-async def add_document_to_db_from_hash(hash_str: str) -> None:
-    async def query_file_table_for_hash(hash: str) -> Tuple[any, any]:
-        # Create an async engine and session
-        # TODO: Refactor this to use the same session or common interface
-        engine = create_async_engine(async_postgres_connection_string, echo=True)
-        async_session_maker = sessionmaker(
-            engine, expire_on_commit=False, class_=AsyncSession
-        )
-
-        async with async_session_maker() as session:
-            # Create a query to select the first row matching the given id
-            stmt = session.select(FileModel).where(FileModel.hash == hash)
-            result = await session.execute(stmt)
-            file_row = result.scalars().first()
-
-            if file_row:
-                english_text = file_row.english_text
-                document_metadata = file_row.doc_metadata
-                document_metadata["source_id"] = str(file_row.id)
-            else:
-                vecstore_metadata_error()
-
-            return (english_text, document_metadata)
-
-    return_tuple = await query_file_table_for_hash(hash_str)
-    english_text = return_tuple[0]
-    doc_metadata = return_tuple[1]
-    if english_text is not None:
-        assert isinstance(english_text, str)
-        assert isinstance(doc_metadata, dict)
-        # TODO : Add support for metadata filtering
-        additional_document = Document(text=english_text, metadata=doc_metadata)
-        additional_document.doc_id = str(hash)
-        # FIXME : Make sure the UUID matches the other function, and dryify this entire fucking mess.
-        add_document_to_db(additional_document)
-    else:
-        assert False, "English text not present for document."
-    return None
-
-
-async def regenerate_vector_database_from_file_table() -> None:
-    document_list = await get_document_list_from_file_table()
-    storage_context = get_storage_context()
-    global hybrid_index
-    hybrid_index = VectorStoreIndex.from_documents(
-        document_list, storage_context=storage_context
-    )
-
-
-# Chat engine for rag
+# def get_hybrid_vector_store() -> MilvusVectorStore:
+#     milvus_user = os.environ.get("MILVUS_VEC_USER")
+#     milvus_pass = os.environ.get("MILVUS_VEC_PASS")
+#     milvus_host = os.environ.get("MILVUS_HOST")
 #
-def create_rag_response_from_query(query: str):
-    return str(query_engine.query(query))
-
-
-def generate_chat_completion(chat_history: List[dict]) -> dict:
-    llama_index_chat_history = sanitzie_chathistory_llamaindex(chat_history)
-    chat_engine = hybrid_index.as_chat_engine(
-        chat_mode="react", verbose=True, chat_history=llama_index_chat_history
-    )
-    response = chat_engine.chat("")
-    response_str = str(response)
-    chat_engine.reset()
-    return {"role": "assistant", "content": response_str}
+#     from vecstore.search import collection_name
+#
+#     hybrid_vector_store = MilvusVectorStore(
+#         uri=milvus_host,
+#         dim=1024,
+#         overwrite=False,
+#         # TODO: Change collection name for prod
+#         collection_name=collection_name,
+#         token=f"{milvus_user}:{milvus_pass}",
+#     )
+#     return hybrid_vector_store
+#
+#
+# def get_storage_context() -> StorageContext:
+#     hybrid_vector_store = get_hybrid_vector_store()
+#     storage_context = StorageContext.from_defaults(vector_store=hybrid_vector_store)
+#     return storage_context
+#
+#
+# def create_hybrid_index() -> VectorStoreIndex:
+#     hybrid_vector_store = get_hybrid_vector_store()
+#
+#     hybrid_index = VectorStoreIndex.from_vector_store(vector_store=hybrid_vector_store)
+#
+#     return hybrid_index
+#
+#
+# def create_retriever(hybrid_index: VectorStoreIndex) -> QueryFusionRetriever:
+#     vector_retriever = hybrid_index.as_retriever(
+#         vector_store_query_mode="default",
+#         similarity_top_k=5,
+#     )
+#     text_retriever = hybrid_index.as_retriever(
+#         vector_store_query_mode="sparse",
+#         similarity_top_k=5,
+#     )
+#     retriever = QueryFusionRetriever(
+#         [vector_retriever, text_retriever],
+#         similarity_top_k=5,
+#         num_queries=1,
+#         mode="relative_score",
+#         use_async=False,
+#     )
+#
+#     return retriever
+#
+#
+# def create_query_engine(retriever: QueryFusionRetriever) -> RetrieverQueryEngine:
+#     response_synthesizer = CompactAndRefine()
+#     query_engine = RetrieverQueryEngine(
+#         retriever=retriever,
+#         response_synthesizer=response_synthesizer,
+#     )
+#
+#     return query_engine
+#
+#
+# hybrid_index = create_hybrid_index()
+# retriever = create_retriever(hybrid_index)
+# query_engine = create_query_engine(retriever)
+#
+#
+# async def get_document_list_from_file_table() -> list:
+#     async def query_file_table_for_all_rows() -> List[Tuple[str, dict]]:
+#         # Create an async engine and session
+#         engine = create_async_engine(async_postgres_connection_string, echo=True)
+#         async_session_maker = sessionmaker(
+#             engine, expire_on_commit=False, class_=AsyncSession
+#         )
+#
+#         async with async_session_maker() as session:
+#             # Create a query to select all rows
+#             stmt = session.select(FileModel)
+#             result = await session.execute(stmt)
+#             file_rows = result.scalars().all()
+#
+#             documents = []
+#             for file_row in file_rows:
+#                 if file_row.english_text is not None and isinstance(
+#                     file_row.doc_metadata, dict
+#                 ):
+#                     documents.append((file_row.english_text, file_row.doc_metadata))
+#
+#             return documents
+#
+#     documents = await query_file_table_for_all_rows()
+#     document_list = []
+#     for english_text, doc_metadata in documents:
+#         if english_text is not None:
+#             additional_document = Document(text=english_text, metadata=doc_metadata)
+#             additional_document.doc_id = str(doc_metadata.get("hash"))
+#             document_list.append(document_list)
+#     return document_list
+#
+#
+# def add_document_to_db(doc: Document) -> None:
+#     # split the document into sentences
+#     parser = SentenceWindowNodeParser(include_metadata=True)
+#     nodes = parser.get_nodes_from_documents([doc])
+#     hybrid_index.insert_nodes(nodes)
+#
+#
+# def vecstore_metadata_error():
+#     logger.error("No metadata found for document. Skipping.")
+#     raise ValueError("No metadata found for document. Must include a source_id.")
+#
+#
+# # WARN: DANGEROUS
+#
+#
+# def add_document_to_db_from_text(text: str, metadata: Optional[dict] = None) -> None:
+#     if metadata is None or metadata.get("source_id") is None:
+#         logger.error("No metadata found for document. Skipping.")
+#         raise ValueError("No metadata found for document. Must include a source_id.")
+#
+#     try:
+#         document = Document(text=str(text), metadata=metadata)
+#         add_document_to_db(document)
+#     except Exception as e:
+#         logger.error(f"Encountered error while adding document: {e}")
+#         logger.error("Trying again with no metadata")
+#         document = Document(text=str(text))
+#         add_document_to_db(document)
+#     return None
+#
+#
+# async def add_document_to_db_from_hash(hash_str: str) -> None:
+#     async def query_file_table_for_hash(hash: str) -> Tuple[any, any]:
+#         # Create an async engine and session
+#         # TODO: Refactor this to use the same session or common interface
+#         engine = create_async_engine(async_postgres_connection_string, echo=True)
+#         async_session_maker = sessionmaker(
+#             engine, expire_on_commit=False, class_=AsyncSession
+#         )
+#
+#         async with async_session_maker() as session:
+#             # Create a query to select the first row matching the given id
+#             stmt = session.select(FileModel).where(FileModel.hash == hash)
+#             result = await session.execute(stmt)
+#             file_row = result.scalars().first()
+#
+#             if file_row:
+#                 english_text = file_row.english_text
+#                 document_metadata = file_row.doc_metadata
+#                 document_metadata["source_id"] = str(file_row.id)
+#             else:
+#                 vecstore_metadata_error()
+#
+#             return (english_text, document_metadata)
+#
+#     return_tuple = await query_file_table_for_hash(hash_str)
+#     english_text = return_tuple[0]
+#     doc_metadata = return_tuple[1]
+#     if english_text is not None:
+#         assert isinstance(english_text, str)
+#         assert isinstance(doc_metadata, dict)
+#         # TODO : Add support for metadata filtering
+#         additional_document = Document(text=english_text, metadata=doc_metadata)
+#         additional_document.doc_id = str(hash)
+#         # FIXME : Make sure the UUID matches the other function, and dryify this entire fucking mess.
+#         add_document_to_db(additional_document)
+#     else:
+#         assert False, "English text not present for document."
+#     return None
+#
+#
+# async def regenerate_vector_database_from_file_table() -> None:
+#     document_list = await get_document_list_from_file_table()
+#     storage_context = get_storage_context()
+#     global hybrid_index
+#     hybrid_index = VectorStoreIndex.from_documents(
+#         document_list, storage_context=storage_context
+#     )
+#
+#
+# # Chat engine for rag
+# #
+# def create_rag_response_from_query(query: str):
+#     return str(query_engine.query(query))
+#
+#
+# def generate_chat_completion(chat_history: List[dict]) -> dict:
+#     llama_index_chat_history = sanitzie_chathistory_llamaindex(chat_history)
+#     chat_engine = hybrid_index.as_chat_engine(
+#         chat_mode="react", verbose=True, chat_history=llama_index_chat_history
+#     )
+#     response = chat_engine.chat("")
+#     response_str = str(response)
+#     chat_engine.reset()
+#     return {"role": "assistant", "content": response_str}
