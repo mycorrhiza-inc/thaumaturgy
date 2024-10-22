@@ -10,7 +10,6 @@ from litestar.handlers.http_handlers.decorators import (
     get,
     post,
     delete,
-    MediaType,
 )
 
 

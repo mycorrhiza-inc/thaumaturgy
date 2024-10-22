@@ -61,20 +61,20 @@ async def audio_to_text_api(filepath: Path, source_lang: Optional[str]) -> str:
     return translated_text
 
 
-async def translate_text_api(
-    self, doctext: str, source_lang: Optional[str], target_lang: str
-) -> str:
-    url = f"{self.endpoint_url}/v0/translation/google-translate"
-    payload = {
-        "text": doctext,
-        "source_lang": source_lang,
-        "target_lang": target_lang,
-    }
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=payload) as response:
-            response.raise_for_status()
-            text = await response.json().get("text", [])
-            return text
+# async def translate_text_api(
+#     self, doctext: str, source_lang: Optional[str], target_lang: str
+# ) -> str:
+#     url = f"{self.endpoint_url}/v0/translation/google-translate"
+#     payload = {
+#         "text": doctext,
+#         "source_lang": source_lang,
+#         "target_lang": target_lang,
+#     }
+#     async with aiohttp.ClientSession() as session:
+#         async with session.post(url, json=payload) as response:
+#             response.raise_for_status()
+#             text = await response.json().get("text", [])
+#             return text
 
 
 class GPUComputeEndpoint:

@@ -10,7 +10,6 @@ from litestar.handlers.http_handlers.decorators import (
     get,
     post,
     delete,
-    MediaType,
 )
 
 
@@ -81,6 +80,28 @@ def push_to_queue(request: str, priority: bool):
     redis_client.rpush(pushkey, request)
 
 
+# type DocTextInfo struct {
+# 	Language       string `json:"language"`
+# 	Text           string `json:"text"`
+# 	IsOriginalText bool   `json:"is_original_text"`
+# }
+#
+# type UpdateDocumentInfo struct {
+# 	Url          string         `json:"url"`
+# 	Doctype      string         `json:"doctype"`
+# 	Lang         string         `json:"lang"`
+# 	Name         string         `json:"name"`
+# 	Source       string         `json:"source"`
+# 	Hash         string         `json:"hash"`
+# 	Mdata        map[string]any `json:"mdata"`
+# 	Stage        string         `json:"stage"`
+# 	Summary      string         `json:"summary"`
+# 	ShortSummary string         `json:"short_summary"`
+# 	Private      bool           `json:"private"`
+# 	DocTexts     []DocTextInfo  `json:"doc_texts"`
+# }
+
+
 class DaemonState(BaseModel):
     enable_background_processing: Optional[bool] = None
     stop_at_background_docprocessing: Optional[str] = None
@@ -91,3 +112,10 @@ class DocumentProcesserController(Controller):
     @get(path="/test")
     async def Test(self) -> str:
         return "Hello World!"
+
+    @post(path="/process-existing-document")
+    async def process_existing_document_handler(
+        self, data: GolangUpdateDocumentInfo, priority: bool
+    ) -> str:
+        task
+        return "Success"
