@@ -2,8 +2,8 @@
 
 
 from pydantic import BaseModel
-from uuid import UUID
-from typing import Optional
+import uuid
+from typing import Optional, Any
 from datetime import datetime
 from enum import Enum
 
@@ -14,10 +14,11 @@ class TaskType(str, Enum):
 
 
 class Task(BaseModel):
-    id: UUID = UUID()
+    id: uuid.UUID = uuid.uuid4()
     task_type: TaskType
     kwargs: dict
     created_at: datetime = datetime.now()
     updated_at: datetime | None = None
     error: str | None = None
     completed: bool = False
+    obj: Any

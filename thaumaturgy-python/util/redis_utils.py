@@ -6,6 +6,7 @@
 # REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE = "docproc_background_daemon"
 # REDIS_DOCPROC_BACKGROUND_PROCESSING_STOPS_AT = "docproc_background_stop_at"
 # REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS = "docproc_currently_processing_docs"
+from pymilvus.client import re
 from constants import (
     REDIS_DOCPROC_QUEUE_KEY,
     REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS,
@@ -13,12 +14,15 @@ from constants import (
     REDIS_PORT,
     REDIS_DOCPROC_PRIORITYQUEUE_KEY,
 )
-from models.files import FileSchema, FileRepository
 from common.file_schemas import FileSchema, DocumentStatus, docstatus_index
 from typing import List, Tuple, Any, Union, Optional, Dict
 import redis
 import logging
 import sys
+import json
+from uuid import UUID
+from common.task_schema import Task
+
 
 # TODO : Mabye asycnify all the redis calls
 
@@ -28,22 +32,26 @@ default_redis_client = redis.Redis(
 default_logger = logging.getLogger(__name__)
 
 
-def pop_from_queue(redis_client: Optional[Any] = None) -> Optional[Any]:
+def pop_from_queue(redis_client: Optional[Any] = None) -> Optional[Task]:
+    logger = default_logger
     if redis_client is None:
         redis_client = default_redis_client
     # TODO : Clean up code logic
     request_string = redis_client.lpop(REDIS_DOCPROC_PRIORITYQUEUE_KEY)
     if request_string is None:
         request_string = redis_client.lpop(REDIS_DOCPROC_QUEUE_KEY)
-    if isinstance(request_string, str) or request_string is None:
-        return request_string
-    default_logger.error(type(request_string))
-    raise Exception(
-        f"Request id is not string or none and is {type(request_string)} instead."
-    )
+    if request_string is None:
+        return None
+    try:
+        obj = Task.model_validate_json(request_string)
+    except Exception as e:
+        logger.error(e)
+        logger.error(request_string)
+        raise e
+    return obj
 
 
-def update_status_in_redis(request_id: int, status: Dict[str, str]) -> None:
+def update_status_in_redis(request_id: UUID, status: Dict[str, str]) -> None:
     redis_client = default_redis_client
     redis_client.hmset(str(request_id), status)
 
@@ -89,7 +97,6 @@ def clear_file_queue(
 
 
 async def bulk_process_file_background(
-    files_repo: FileRepository,
     files: List[FileSchema],
     stop_at: DocumentStatus,
     max_documents: Optional[int] = None,
@@ -116,12 +123,12 @@ async def bulk_process_file_background(
     ) + sanitize(redis_client.lrange(REDIS_DOCPROC_PRIORITYQUEUE_KEY, 0, -1))
 
     def should_process(file: FileSchema) -> bool:
-        if not docstatus_index(file.stage) < docstatus_index(stop_at):
+        if not docstatus_index(DocumentStatus(file.stage)) < docstatus_index(stop_at):
             return False
         # Set up a toggle for this at some point in time
         return file.id not in currently_processing_docs
 
-    await files_repo.session.commit()
+    # await files_repo.session.commit()
     files_to_convert = list(filter(should_process, files))[:max_documents]
 
     convert_model_to_results_and_push(schemas=files_to_convert)

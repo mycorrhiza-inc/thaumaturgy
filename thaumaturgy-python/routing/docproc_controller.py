@@ -89,5 +89,5 @@ class DaemonState(BaseModel):
 
 class DocumentProcesserController(Controller):
     @get(path="/v1/test")
-    async def Test(self, data: DaemonState) -> str:
+    async def Test(self) -> str:
         return "Hello World!"

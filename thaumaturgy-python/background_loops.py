@@ -19,13 +19,19 @@ from util.redis_utils import (
 )
 import traceback
 
+from enum import Enum
 from constants import (
-    REDIS_BACKGROUND_DAEMON_TOGGLE,
+    REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE,
     REDIS_HOST,
     REDIS_PORT,
     REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS,
-    REDIS_BACKGROUND_PROCESSING_STOPS_AT,
 )
+
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Any
+from uuid import UUID
+from common.task_schema import Task, TaskType
 
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 default_logger = logging.getLogger(__name__)
@@ -62,77 +68,39 @@ default_logger = logging.getLogger(__name__)
 #             result = None
 
 
-class TaskType(str, Enum):
-    add_file = "add_file"
-    process_existing_file = "process_existing_file"
-
-
-class Task(BaseModel):
-    id: UUID = UUID()
-    task_type: TaskType
-    kwargs: dict
-    created_at: datetime = datetime.now()
-    updated_at: datetime | None = None
-    error: str | None = None
-    completed: bool = False
-
-
-# Returns a bool depending on if it was actually able to add numdocs
-async def add_bulk_background_docs(numdocs: int, stop_at: str = "completed") -> bool:
-    logger = default_logger
-    engine = utils.sqlalchemy_config.get_engine()
-    # Maybe Remove for better perf?
-    async with engine.begin() as conn:
-        await conn.run_sync(UUIDBase.metadata.create_all)
-    session = AsyncSession(engine)
-    files_repo = await provide_files_repo(session)
-    try:
-        data = QueryData(match_stage="unprocessed")
-        filters = querydata_to_filters_strict(data)
-
-        file_results = await files_repo.list(*filters)
-        shuffle(file_results)
-        return_boolean = len(file_results) >= numdocs
-        truncated_results = file_results[:numdocs]
-        convert_model_to_results_and_push(
-            schemas=truncated_results, redis_client=redis_client
-        )
-    except Exception as e:
-        await engine.dispose()
-        await session.close()
-        raise e
-    await session.close()
-    await engine.dispose()
-    return return_boolean
-
-
 async def main_processing_loop() -> None:
     await asyncio.sleep(
         10
     )  # Wait 10 seconds until application has finished loading to do anything
     max_concurrent_docs = 30
     redis_client.set(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS, 0)
-    redis_client.set(REDIS_BACKGROUND_PROCESSING_STOPS_AT, "completed")
     # REMOVE FOR PERSIST QUEUES ACROSS RESTARTS:
     #
     clear_file_queue(redis_client=redis_client)
     default_logger.info("Starting the daemon processes docs in the queue.")
 
     async def activity():
-        current_stop_at = redis_client.get(REDIS_BACKGROUND_PROCESSING_STOPS_AT)
-
         concurrent_docs = int(redis_client.get(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS))
         if concurrent_docs >= max_concurrent_docs:
             await asyncio.sleep(2)
             return None
-        pull_docid = pop_from_queue(redis_client=redis_client)
-        if pull_docid is None:
+        pull_obj = pop_from_queue(redis_client=redis_client)
+        if pull_obj is None:
             await asyncio.sleep(2)
             return None
+
         increment_doc_counter(1, redis_client=redis_client)
-        asyncio.create_task(
-            process_document(doc_id_str=pull_docid, stop_at=current_stop_at)
-        )
+        try:
+            asyncio.create_task(execute_task(task=pull_obj))
+        except Exception as e:
+            tb = traceback.format_exc()
+            default_logger.error("Encountered error while processing a task.")
+            default_logger.error(e)
+            default_logger.error(tb)
+            await asyncio.sleep(2)
+            raise e
+        finally:
+            increment_doc_counter(-1, redis_client=redis_client)
         return None
 
     # Logic to force it to process each loop sequentially
@@ -141,11 +109,6 @@ async def main_processing_loop() -> None:
         try:
             result = await activity()
         except Exception as e:
-            tb = traceback.format_exc()
-            default_logger.error("Encountered error while processing a document")
-            default_logger.error(e)
-            default_logger.error(tb)
-            await asyncio.sleep(2)
             result = None
 
 
@@ -168,21 +131,13 @@ async def process_existing_file(doc_id_str: str, stop_at: str) -> None:
     # TODO:: Replace passthrough files repo with actual global repo
     # engine = create_async_engine(
     #     postgres_connection_string,
-    engine = utils.sqlalchemy_config.get_engine()
     # Maybe Remove for better perf?
     async with engine.begin() as conn:
         await conn.run_sync(UUIDBase.metadata.create_all)
     session = AsyncSession(engine)
     try:
-        files_repo = await provide_files_repo(session)
-        await process_fileid_raw(
-            doc_id_str, files_repo, logger, stop_at, priority=False
-        )
+        await process_fileid_raw(doc_id_str, logger, stop_at, priority=False)
     except Exception as e:
         increment_doc_counter(-1, redis_client=redis_client)
-        await engine.dispose()
-        await session.close()
         raise e
     increment_doc_counter(-1, redis_client=redis_client)
-    await session.close()
-    await engine.dispose()
