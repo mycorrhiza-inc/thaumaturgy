@@ -23,7 +23,7 @@ from constants import (
     REDIS_BACKGROUND_DAEMON_TOGGLE,
     REDIS_HOST,
     REDIS_PORT,
-    REDIS_CURRENTLY_PROCESSING_DOCS,
+    REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS,
     REDIS_BACKGROUND_PROCESSING_STOPS_AT,
 )
 
@@ -111,7 +111,7 @@ async def main_processing_loop() -> None:
         10
     )  # Wait 10 seconds until application has finished loading to do anything
     max_concurrent_docs = 30
-    redis_client.set(REDIS_CURRENTLY_PROCESSING_DOCS, 0)
+    redis_client.set(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS, 0)
     redis_client.set(REDIS_BACKGROUND_PROCESSING_STOPS_AT, "completed")
     # REMOVE FOR PERSIST QUEUES ACROSS RESTARTS:
     #
@@ -121,7 +121,7 @@ async def main_processing_loop() -> None:
     async def activity():
         current_stop_at = redis_client.get(REDIS_BACKGROUND_PROCESSING_STOPS_AT)
 
-        concurrent_docs = int(redis_client.get(REDIS_CURRENTLY_PROCESSING_DOCS))
+        concurrent_docs = int(redis_client.get(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS))
         if concurrent_docs >= max_concurrent_docs:
             await asyncio.sleep(2)
             return None

@@ -1,11 +1,20 @@
+# REDIS_DOCPROC_PRIORITYQUEUE_KEY = "docproc_queue_priority"
+# REDIS_DOCPROC_QUEUE_KEY = "docproc_queue_background"
+#
+# REDIS_DOCPROC_INFORMATION = "docproc_information"
+#
+# REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE = "docproc_background_daemon"
+# REDIS_DOCPROC_BACKGROUND_PROCESSING_STOPS_AT = "docproc_background_stop_at"
+# REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS = "docproc_currently_processing_docs"
 from constants import (
-    REDIS_BACKGROUND_DOCPROC_KEY,
-    REDIS_CURRENTLY_PROCESSING_DOCS,
+    REDIS_DOCPROC_QUEUE_KEY,
+    REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS,
     REDIS_HOST,
     REDIS_PORT,
-    REDIS_PRIORITY_DOCPROC_KEY,
+    REDIS_DOCPROC_PRIORITYQUEUE_KEY,
 )
-from models.files import DocumentStatus, FileModel, FileRepository, docstatus_index
+from models.files import FileModel, FileRepository
+from common.file_schemas import FileSchema, DocumentStatus, docstatus_index
 from typing import List, Tuple, Any, Union, Optional, Dict
 import redis
 import logging
@@ -19,22 +28,23 @@ default_redis_client = redis.Redis(
 default_logger = logging.getLogger(__name__)
 
 
-def pop_from_queue(redis_client: Optional[Any] = None) -> Optional[str]:
+def pop_from_queue(redis_client: Optional[Any] = None) -> Optional[Any]:
     if redis_client is None:
         redis_client = default_redis_client
     # TODO : Clean up code logic
-    request_id = redis_client.lpop(REDIS_PRIORITY_DOCPROC_KEY)
-    if request_id is None:
-        request_id = redis_client.lpop(REDIS_BACKGROUND_DOCPROC_KEY)
-    if isinstance(request_id, str) or request_id is None:
-        return request_id
-    default_logger.error(type(request_id))
+    request_string = redis_client.lpop(REDIS_DOCPROC_PRIORITYQUEUE_KEY)
+    if request_string is None:
+        request_string = redis_client.lpop(REDIS_DOCPROC_QUEUE_KEY)
+    if isinstance(request_string, str) or request_string is None:
+        return request_string
+    default_logger.error(type(request_string))
     raise Exception(
-        f"Request id is not string or none and is {type(request_id)} instead."
+        f"Request id is not string or none and is {type(request_string)} instead."
     )
 
 
 def update_status_in_redis(request_id: int, status: Dict[str, str]) -> None:
+    redis_client = default_redis_client
     redis_client.hmset(str(request_id), status)
 
 
@@ -44,9 +54,9 @@ def increment_doc_counter(
 ) -> None:
     if redis_client is None:
         redis_client = default_redis_client
-    counter = redis_client.get(REDIS_CURRENTLY_PROCESSING_DOCS)
+    counter = redis_client.get(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS)
     default_logger.info(counter)
-    redis_client.set(REDIS_CURRENTLY_PROCESSING_DOCS, int(counter) + increment)
+    redis_client.set(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS, int(counter) + increment)
 
 
 def convert_model_to_results_and_push(
@@ -66,7 +76,7 @@ def convert_model_to_results_and_push(
     if isinstance(schemas, FileModel):
         schemas = [schemas]
     id_list = convert_model_to_results(schemas)
-    redis_client.rpush(REDIS_BACKGROUND_DOCPROC_KEY, *id_list)
+    redis_client.rpush(REDIS_DOCPROC_QUEUE_KEY, *id_list)
 
 
 def clear_file_queue(
@@ -74,8 +84,8 @@ def clear_file_queue(
 ) -> None:
     if redis_client is None:
         redis_client = default_redis_client
-    redis_client.ltrim(REDIS_PRIORITY_DOCPROC_KEY, 0, 0)
-    redis_client.ltrim(REDIS_BACKGROUND_DOCPROC_KEY, 0, 0)
+    redis_client.ltrim(REDIS_DOCPROC_PRIORITYQUEUE_KEY, 0, 0)
+    redis_client.ltrim(REDIS_DOCPROC_QUEUE_KEY, 0, 0)
 
 
 async def bulk_process_file_background(
@@ -102,8 +112,8 @@ async def bulk_process_file_background(
         return list(x)
 
     currently_processing_docs = sanitize(
-        redis_client.lrange(REDIS_BACKGROUND_DOCPROC_KEY, 0, -1)
-    ) + sanitize(redis_client.lrange(REDIS_PRIORITY_DOCPROC_KEY, 0, -1))
+        redis_client.lrange(REDIS_DOCPROC_QUEUE_KEY, 0, -1)
+    ) + sanitize(redis_client.lrange(REDIS_DOCPROC_PRIORITYQUEUE_KEY, 0, -1))
 
     def should_process(file: FileModel) -> bool:
         if not docstatus_index(file.stage) < docstatus_index(stop_at):

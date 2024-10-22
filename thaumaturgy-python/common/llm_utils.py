@@ -13,7 +13,6 @@ from typing import Optional, List, Union, Any, Tuple, Dict
 
 import asyncio
 
-from rag.SemanticSplitter import split_by_max_tokensize
 
 import logging
 

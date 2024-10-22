@@ -1,7 +1,6 @@
 from typing_extensions import Doc
 from common.file_schemas import FileSchemaFull, FileTextSchema
 from common.llm_utils import KeLLMUtils
-from vecstore.docprocess import add_document_to_db
 import os
 from pathlib import Path
 from typing import Any
@@ -9,19 +8,13 @@ from typing import Any
 from sqlalchemy import select
 
 from pydantic import TypeAdapter
-from models.utils import PydanticBaseModel as BaseModel
 
 from uuid import UUID
 
-from models.files import (
-    FileModel,
-    FileRepository,
+from common.file_schemas import (
     FileSchema,
-    FileSchemaWithText,
-    provide_files_repo,
     DocumentStatus,
     docstatus_index,
-    model_to_schema,
 )
 
 from logic.docingest import DocumentIngester
