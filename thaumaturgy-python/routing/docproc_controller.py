@@ -2,7 +2,6 @@ from pydantic import BaseModel
 from typing import Optional
 
 
-
 from litestar import Controller, Request, Response
 
 from litestar.handlers.http_handlers.decorators import (
@@ -12,44 +11,9 @@ from litestar.handlers.http_handlers.decorators import (
 )
 
 
-from litestar.params import Parameter
-from litestar.di import Provide
-from litestar.repository.filters import LimitOffset
-from litestar.datastructures import UploadFile
-from litestar.enums import RequestEncodingType
-from litestar.params import Body
-
-
-from common.file_schemas import (
-    FileSchema,
-    DocumentStatus,
-    FileTextSchema,
-    docstatus_index,
-)
-
-
 from typing import Optional
 
 
-
-from common.niclib import rand_string, paginate_results
-
-
-
-from constants import (
-    OS_TMPDIR,
-)
-
-from common.misc_schemas import QueryData
-
-# REDIS_DOCPROC_PRIORITYQUEUE_KEY = "docproc_queue_priority"
-# REDIS_DOCPROC_QUEUE_KEY = "docproc_queue_background"
-#
-# REDIS_DOCPROC_INFORMATION = "docproc_information"
-#
-# REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE = "docproc_background_daemon"
-# REDIS_DOCPROC_BACKGROUND_PROCESSING_STOPS_AT = "docproc_background_stop_at"
-# REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS = "docproc_currently_processing_docs"
 from constants import (
     REDIS_DOCPROC_PRIORITYQUEUE_KEY,
     REDIS_DOCPROC_QUEUE_KEY,
@@ -65,16 +29,9 @@ from background_loops import clear_file_queue
 
 import redis
 
+from util.redis_utils import upsert_task
+
 redis_client = redis.Redis(REDIS_HOST, port=REDIS_PORT)
-
-
-def push_to_queue(request: str, priority: bool):
-    if priority:
-        pushkey = REDIS_DOCPROC_QUEUE_KEY
-    else:
-        pushkey = REDIS_DOCPROC_PRIORITYQUEUE_KEY
-
-    redis_client.rpush(pushkey, request)
 
 
 # type DocTextInfo struct {
@@ -99,6 +56,9 @@ def push_to_queue(request: str, priority: bool):
 # }
 
 
+from common.task_schema import Task, create_task, GolangUpdateDocumentInfo
+
+
 class DaemonState(BaseModel):
     enable_background_processing: Optional[bool] = None
     stop_at_background_docprocessing: Optional[str] = None
@@ -113,6 +73,9 @@ class DocumentProcesserController(Controller):
     @post(path="/process-existing-document")
     async def process_existing_document_handler(
         self, data: GolangUpdateDocumentInfo, priority: bool
-    ) -> str:
-        task
-        return "Success"
+    ) -> Task:
+        task = create_task(data, priority, kwargs={})
+        if task is None:
+            raise Exception("Unable to create task")
+        upsert_task(task=task, redis_client=None)
+        return task

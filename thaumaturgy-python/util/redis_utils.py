@@ -49,9 +49,27 @@ def pop_from_queue(redis_client: Optional[Any] = None) -> Optional[Task]:
     return obj
 
 
-def update_status_in_redis(request_id: UUID, status: Dict[str, str]) -> None:
-    redis_client = default_redis_client
-    redis_client.hmset(str(request_id), status)
+def push_to_queue(task: Task, redis_client: Optional[Any] = None) -> None:
+    if redis_client is None:
+        redis_client = default_redis_client
+    assert isinstance(task, Task)
+    priority = task.priority
+    if priority:
+        pushkey = REDIS_DOCPROC_QUEUE_KEY
+    else:
+        pushkey = REDIS_DOCPROC_PRIORITYQUEUE_KEY
+    json_str = task.model_dump_json()
+    redis_client.rpush(pushkey, json_str)
+    upsert_task(task, redis_client)
+
+
+def upsert_task(task, redis_client: Optional[Any] = None) -> None:
+    if redis_client is None:
+        redis_client = default_redis_client
+    assert isinstance(task, Task)
+    json_str = task.model_dump_json()
+    string_id = str(task.id)
+    redis_client.set(string_id, json_str)
 
 
 def increment_doc_counter(

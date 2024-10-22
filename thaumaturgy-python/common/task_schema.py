@@ -15,11 +15,12 @@ class TaskType(str, Enum):
 
 class Task(BaseModel):
     id: uuid.UUID = uuid.uuid4()
-    priority: bool
+    priority: bool = True
     task_type: TaskType
-    kwargs: dict
+    table_name: str = ""
+    kwargs: dict = {}
     created_at: datetime = datetime.now()
-    updated_at: datetime | None = None
+    updated_at: datetime = datetime.now()
     error: str | None = None
     completed: bool = False
     obj: Any
@@ -46,7 +47,7 @@ class GolangUpdateDocumentInfo(BaseModel):
     doc_texts: list[DocTextInfo]
 
 
-def create_task(obj: Any, priority: bool, kwargs: dict) -> Optional[Task]:
+def create_task(obj: Any, priority: bool, kwargs: dict = {}) -> Optional[Task]:
     def determine_task_type(obj: Any) -> Optional[TaskType]:
         if isinstance(obj, GolangUpdateDocumentInfo):
             return TaskType.process_existing_file
