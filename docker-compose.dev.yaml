@@ -2,13 +2,15 @@
 services:
   reverse-proxy:
     image: traefik:v3.1.2
-    command: >
-      --api.insecure=true
-      --providers.docker
-
-    # --tracing.otlp=true
-    # --tracing.otlp.http=true
-    # --tracing.otlp.http.endpoint=http://jaeger:4318/v1/traces
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entryPoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      # - "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.myresolver.acme.email=nvenner@protonmail.ch"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     expose:
       - 80
       - 443
@@ -17,6 +19,7 @@ services:
       - "${PROXY_UI_PORT:-8084}:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - "${VOLUMES_DIRECTORY:-./volumes}/letsencrypt:/letsencrypt"
   frpc:
     image: snowdreamtech/frpc:alpine
     container_name: frpc
