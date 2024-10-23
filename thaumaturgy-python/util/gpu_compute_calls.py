@@ -3,15 +3,13 @@ from pathlib import Path
 from yaml import Mark
 
 
-from .niclib import rand_string
-
+from common.niclib import rand_string
 
 
 import requests
 import logging
 
 from typing import Optional, Any
-
 
 
 import aiohttp
