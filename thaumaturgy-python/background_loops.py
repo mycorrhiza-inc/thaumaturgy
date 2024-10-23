@@ -10,13 +10,9 @@ from logic.filelogic import (
     process_fileid_raw,
 )
 import asyncio
-from litestar.contrib.sqlalchemy.base import UUIDBase
-
-from sqlalchemy.ext.asyncio import AsyncSession
 import redis
 from util.redis_utils import (
     clear_file_queue,
-    convert_model_to_results_and_push,
     increment_doc_counter,
     pop_from_queue,
     push_to_queue,
@@ -25,7 +21,6 @@ from util.redis_utils import (
 import traceback
 
 from constants import (
-    REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE,
     REDIS_HOST,
     REDIS_PORT,
     REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS,
