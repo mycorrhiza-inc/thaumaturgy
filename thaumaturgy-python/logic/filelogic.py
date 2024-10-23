@@ -106,6 +106,7 @@ async def does_exist_file_with_hash(hash: str) -> bool:
 async def upsert_full_file_to_db(
     obj: GolangUpdateDocumentInfo, insert: bool
 ) -> GolangUpdateDocumentInfo:
+    logger = default_logger
     if insert:
         url = f"https://kessler.xyz/api/v2/public/files/insert"
     else:
@@ -125,6 +126,8 @@ async def upsert_full_file_to_db(
                     except (ValueError, TypeError, KeyError) as e:
                         print(f"Failed to parse JSON: {e}")
                         raise Exception(f"Failed to parse JSON: {e}")
+                logger.info(f"Response code: {response_code}")
+                logger.info(f"Response body: {await response.text()}")
         await asyncio.sleep(10)
     raise Exception(
         "Tried 5 times to commit file to DB and failed. TODO: SAVE AND BACKUP THE FILE TO REDIS OR SOMETHING IF THIS FAILS."
