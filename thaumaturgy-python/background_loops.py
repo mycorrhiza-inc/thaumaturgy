@@ -127,12 +127,14 @@ async def process_add_file_scraper(task: Task) -> None:
     assert isinstance(scraper_obj, ScraperInfo)
     logger = default_logger
     filetype = scraper_obj.file_type
+    if filetype is None or filetype == "":
+        filetype = "pdf"
     file_url = scraper_obj.file_url
     metadata = {
         "url": scraper_obj.file_url,
         "doctype": filetype,
         "lang": "",
-        "name": scraper_obj.lang,
+        "title": scraper_obj.lang,
         "source": scraper_obj.internal_source_name,
         "date": scraper_obj.published_date,
         "file_class": scraper_obj.file_class,

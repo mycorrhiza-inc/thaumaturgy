@@ -154,7 +154,7 @@ async def add_file_raw(
     file_manager = S3FileManager(logger=logger)
 
     def validate_metadata_mutable(metadata: dict):
-        if metadata.get("lang") is None:
+        if metadata.get("lang") is None or metadata.get("lang") == "":
             metadata["lang"] = "en"
         try:
             assert isinstance(metadata.get("title"), str)
