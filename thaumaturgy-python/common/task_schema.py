@@ -4,7 +4,7 @@
 from pydantic import BaseModel
 import uuid
 from typing import Optional, Any
-from datetime import datetime
+from datetime import datetime, date
 from enum import Enum
 
 
@@ -140,7 +140,7 @@ class GolangUpdateDocumentInfo(BaseModel):
 class ScraperInfo(BaseModel):
     file_url: str  # throw a get request at this url to get the file
     name: str = ""
-    published_date: str = ""
+    published_date: Optional[date] = None
     internal_source_name: str = ""
     docket_id: str = ""
     author_organisation: str = ""
