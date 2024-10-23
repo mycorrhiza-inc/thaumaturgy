@@ -116,11 +116,6 @@ def get_hash_str(
             hasher().update(buf)
             buf = f.read(65536)
         return base64.urlsafe_b64encode(hasher().digest()).decode()
-    if isinstance(file_input, BufferedWriter):
-        with tempfile.NamedTemporaryFile() as temp:
-            data = payload.get_payload(decode=True)
-            temp.write(data)
-            return base64.url_safe_b64encode(hasher(data).digest())
     return "ERROR Hashing File"
 
 

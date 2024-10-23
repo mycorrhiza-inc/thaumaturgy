@@ -1,5 +1,5 @@
 from typing_extensions import Doc
-from common.file_schemas import FileSchemaFull, FileTextSchema
+from common.file_schemas import GolangUpdateDocumentInfo, FileTextSchema
 from common.llm_utils import KeLLMUtils
 import os
 from pathlib import Path
@@ -43,6 +43,54 @@ import logging
 
 default_logger = logging.getLogger(__name__)
 
+from common.task_schema import Task
+
+# class FileTextSchema(BaseModel):
+#     file_id: UUID
+#     is_original_text: bool
+#     language: str
+#     text: str
+
+# class GolangUpdateDocumentInfo(BaseModel):
+#     id: UUID
+#     url: str | None = None
+#     hash: str | None = None
+#     doctype: str | None = None
+#     lang: str | None = None
+#     name: str | None = None
+#     source: str | None = None
+#     stage: str | None = None
+#     short_summary: str | None = None
+#     summary: str | None = None
+#     organization_id: UUID | None = None
+#     mdata: Dict[str, Any] = {}
+#     texts: List[FileTextSchema] = []
+#     authors: List[IndividualSchema] = []
+#     organization: OrganizationSchema | None = None
+#
+
+
+# class DocTextInfo(BaseModel):
+#     language: str
+#     text: str
+#     is_original_text: bool
+#
+#
+# class GolangUpdateDocumentInfo(BaseModel):
+#     id: Optional[uuid.UUID] = None
+#     url: str
+#     doctype: str
+#     lang: str
+#     name: str
+#     source: str
+#     hash: str
+#     mdata: dict[str, Any]
+#     stage: str
+#     summary: str
+#     short_summary: str
+#     private: bool
+#     doc_texts: list[DocTextInfo]
+
 
 async def does_exist_file_with_hash(hash: str) -> bool:
     raise Exception("Deduplication not implemented on server")
@@ -54,8 +102,14 @@ async def does_exist_file_with_hash(hash: str) -> bool:
     return bool(response_dict.get("exists"))
 
 
-async def upsert_full_file_to_db(obj: FileSchemaFull) -> bool:
-    url = f"{KESSLER_URL}/api/v1/thaumaturgy/upsert_file"
+async def upsert_full_file_to_db(
+    obj: GolangUpdateDocumentInfo, insert: bool
+) -> GolangUpdateDocumentInfo:
+    if insert:
+        url = f"https://kessler.xyz/api/v2/public/files/insert"
+    else:
+        id = str(obj.i)
+        url = f"https://kessler.xyz/api/v2/public/files/{id}"
     json_data = obj.dict()
     json_data["id"] = str(obj.id)
     for _ in range(5):
@@ -63,7 +117,14 @@ async def upsert_full_file_to_db(obj: FileSchemaFull) -> bool:
             async with session.post(url, json=json_data) as response:
                 response_code = response.status
                 if response_code >= 200 and response_code < 300:
-                    return True
+                    try:
+                        response_json = await response.json()
+                        # Validate and cast to GolangUpdateDocumentInfo
+                        golang_update_info = GolangUpdateDocumentInfo(**response_json)
+                        return golang_update_info
+                    except (ValueError, TypeError, KeyError) as e:
+                        print(f"Failed to parse JSON: {e}")
+                        raise Exception(f"Failed to parse JSON: {e}")
         await asyncio.sleep(10)
     raise Exception(
         "Tried 5 times to commit file to DB and failed. TODO: SAVE AND BACKUP THE FILE TO REDIS OR SOMETHING IF THIS FAILS."
@@ -75,7 +136,7 @@ async def add_file_raw(
     metadata: dict,
     process: bool,  # Figure out how to pass in a boolean as a query paramater
     check_duplicate: bool = False,
-) -> FileSchema:
+) -> GolangUpdateDocumentInfo:
     logger = default_logger
     docingest = DocumentIngester(logger)
     file_manager = S3FileManager(logger=logger)
@@ -118,8 +179,8 @@ async def add_file_raw(
         if does_exist_file_with_hash(filehash):
             raise Exception("File Already exists in DB, erroring out.")
     file_manager.backup_metadata_to_hash(metadata, filehash)
-    new_file = FileSchemaFull(
-        id=UUID(),
+    new_file = GolangUpdateDocumentInfo(
+        id=UUID("00000000-0000-0000-0000-000000000000"),
         url="N/A",
         name=metadata.get("title"),
         doctype=metadata.get("doctype"),
@@ -131,26 +192,17 @@ async def add_file_raw(
         summary=None,
         short_summary=None,
     )
-
-    if process:
-        logger.info("Processing File")
-        # Removing the await here, SHOULD allow an instant return to the user, but also have python process the file in the background hopefully!
-        # TODO : It doesnt work, for now its fine and also doesnt compete with the daemon for resources. Fix later
-        # TODO : Add passthrough for low priority file processing with a daemon in the background
-        # since this is a sync main thread call, give it priority
-        await process_file_raw(new_file)
-    else:
-        await upsert_full_file_to_db(new_file)
-    return new_file
+    file_from_server = upsert_full_file_to_db(new_file, insert=True)
+    return file_from_server
 
 
-async def fetch_full_file_from_server(file_id: UUID) -> FileSchemaFull:
+async def fetch_full_file_from_server(file_id: UUID) -> GolangUpdateDocumentInfo:
     logger = default_logger
     logger.info("fetching full file from server")
     url = f"{KESSLER_URL}/api/v1/thaumaturgy/full_file/{file_id}"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
-            converted_fileschema = FileSchemaFull(**await response.json())
+            converted_fileschema = GolangUpdateDocumentInfo(**await response.json())
     return converted_fileschema
 
 
@@ -165,13 +217,13 @@ async def process_fileid_raw(
 
 
 async def process_file_raw(
-    obj: Optional[FileSchemaFull],
+    obj: Optional[GolangUpdateDocumentInfo],
     stop_at: Optional[DocumentStatus] = None,
     priority: bool = True,
 ):
     logger = default_logger
     if obj is None:
-        obj = FileSchemaFull(id=UUID())
+        raise Exception("You done fucked up, you forgot to pass in a file")
     hash = obj.hash
     if hash is None:
         raise Exception("You done fucked up, you forgot to pass in a hash")
@@ -304,7 +356,7 @@ async def process_file_raw(
         if docstatus_index(current_stage) >= docstatus_index(stop_at):
             logger.info(current_stage.value)
             obj.stage = current_stage.value
-            await upsert_full_file_to_db(obj)
+            await upsert_full_file_to_db(obj, insert=False)
             return obj
         try:
             match current_stage:
@@ -330,5 +382,5 @@ async def process_file_raw(
                 f"Document errored out while processing stage: {current_stage.value}"
             )
             obj.stage = current_stage.value
-            await upsert_full_file_to_db(obj)
+            await upsert_full_file_to_db(obj, insert=False)
             raise e

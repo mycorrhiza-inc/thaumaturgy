@@ -25,7 +25,7 @@ from constants import (
 )
 
 from pydantic import BaseModel
-from common.task_schema import Task, TaskType
+from common.task_schema import GolangUpdateDocumentInfo, ScraperInfo, Task, TaskType
 
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 default_logger = logging.getLogger(__name__)
@@ -111,27 +111,20 @@ def initialize_background_loops() -> None:
 
 
 async def execute_task(task: Task) -> None:
-    if task.task_type == TaskType.add_file:
-        raise Exception("Not implemented")
+    match task.task_type:
+        case TaskType.add_file_scraper:
+            await process_add_file_scraper(task)
+        case TaskType.process_existing_file:
+            await process_existing_file(task)
 
-    elif task.task_type == TaskType.process_existing_file:
-        await process_existing_file(**task.kwargs)
 
-
-async def process_existing_file(doc_id_str: str, stop_at: str) -> None:
+async def process_add_file_scraper(task: Task) -> None:
+    obj = task.obj
+    assert isinstance(obj, ScraperInfo)
     logger = default_logger
-    logger.info(f"Executing background docproc on {doc_id_str} to {stop_at}")
-    stop_at = DocumentStatus(stop_at)
-    # TODO:: Replace passthrough files repo with actual global repo
-    # engine = create_async_engine(
-    #     postgres_connection_string,
-    # Maybe Remove for better perf?
-    async with engine.begin() as conn:
-        await conn.run_sync(UUIDBase.metadata.create_all)
-    session = AsyncSession(engine)
-    try:
-        await process_fileid_raw(doc_id_str, logger, stop_at, priority=False)
-    except Exception as e:
-        increment_doc_counter(-1, redis_client=redis_client)
-        raise e
-    increment_doc_counter(-1, redis_client=redis_client)
+
+
+async def process_existing_file(task: Task) -> None:
+    obj = task.obj
+    assert isinstance(obj, GolangUpdateDocumentInfo)
+    logger = default_logger

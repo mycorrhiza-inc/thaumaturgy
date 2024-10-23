@@ -8,6 +8,9 @@ from datetime import datetime
 from enum import Enum
 
 
+from .file_schemas import FileTextSchema, FileSchemaFull
+
+
 class TaskType(str, Enum):
     add_file_scraper = "add_file_scraper"
     process_existing_file = "process_existing_file"
@@ -26,6 +29,30 @@ class Task(BaseModel):
     obj: Any
 
 
+# class FileTextSchema(BaseModel):
+#     file_id: UUID
+#     is_original_text: bool
+#     language: str
+#     text: str
+
+# class FileSchemaFull(BaseModel):
+#     id: UUID
+#     url: str | None = None
+#     hash: str | None = None
+#     doctype: str | None = None
+#     lang: str | None = None
+#     name: str | None = None
+#     source: str | None = None
+#     stage: str | None = None
+#     short_summary: str | None = None
+#     summary: str | None = None
+#     organization_id: UUID | None = None
+#     mdata: Dict[str, Any] = {}
+#     texts: List[FileTextSchema] = []
+#     authors: List[IndividualSchema] = []
+#     organization: OrganizationSchema | None = None
+
+
 class DocTextInfo(BaseModel):
     language: str
     text: str
@@ -33,18 +60,81 @@ class DocTextInfo(BaseModel):
 
 
 class GolangUpdateDocumentInfo(BaseModel):
-    url: str
-    doctype: str
-    lang: str
-    name: str
-    source: str
-    hash: str
-    mdata: dict[str, Any]
-    stage: str
-    summary: str
-    short_summary: str
-    private: bool
-    doc_texts: list[DocTextInfo]
+    id: uuid.UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
+    url: str = ""
+    doctype: str = ""
+    lang: str = ""
+    name: str = ""
+    source: str = ""
+    hash: str = ""
+    mdata: dict[str, Any] = {}
+    stage: str = ""
+    summary: str = ""
+    short_summary: str = ""
+    private: bool = False
+    doc_texts: list[DocTextInfo] = []
+
+
+# def convert_file_schema_full_to_golang_update(
+#     file_schema: FileSchemaFull,
+# ) -> GolangUpdateDocumentInfo:
+#     doc_texts = [
+#         DocTextInfo(
+#             language=text.language,
+#             text=text.text,
+#             is_original_text=text.is_original_text,
+#         )
+#         for text in file_schema.texts
+#     ]
+#
+#     return GolangUpdateDocumentInfo(
+#         id=file_schema.id or uuid.uuid4(),
+#         url=file_schema.url or "",
+#         doctype=file_schema.doctype or "",
+#         lang=file_schema.lang or "",
+#         name=file_schema.name or "",
+#         source=file_schema.source or "",
+#         hash=file_schema.hash or "",
+#         mdata=file_schema.mdata,
+#         stage=file_schema.stage or "",
+#         summary=file_schema.summary or "",
+#         short_summary=file_schema.short_summary or "",
+#         private=False,  # Default value, adjust if there's a corresponding field
+#         doc_texts=doc_texts,
+#     )
+#
+#
+# def convert_golang_update_to_file_schema_full(
+#     golang_update: GolangUpdateDocumentInfo,
+# ) -> FileSchemaFull:
+#     texts = [
+#         FileTextSchema(
+#             file_id=golang_update.id,  # No equivalent, leave as None or adjust if necessary
+#             is_original_text=text.is_original_text,
+#             language=text.language,
+#             text=text.text,
+#         )
+#         for text in golang_update.doc_texts
+#     ]
+#
+#     return FileSchemaFull(
+#         id=golang_update.id,  # No equivalent, leave as None or adjust if necessary
+#         url=golang_update.url,
+#         hash=golang_update.hash,
+#         doctype=golang_update.doctype,
+#         lang=golang_update.lang,
+#         name=golang_update.name,
+#         source=golang_update.source,
+#         stage=golang_update.stage,
+#         short_summary=golang_update.short_summary,
+#         summary=golang_update.summary,
+#         organization_id=None,  # No equivalent, leave as None or adjust if necessary
+#         mdata=golang_update.mdata,
+#         texts=texts,
+#         authors=[],  # No equivalent, leave empty or adjust if necessary
+#         organization=None,  # No equivalent, leave as None or adjust if necessary
+#     )
+#
 
 
 class ScraperInfo(BaseModel):
