@@ -56,7 +56,7 @@ class DaemonState(BaseModel):
 # "file_name": "2024 O&R Public IIJA and IRA letter (1).pdf"
 class NyPUCScraperSchema(BaseModel):
     serial: Optional[str]
-    date_filed: Optional[date]
+    date_filed: Optional[str]
     nypuc_doctype: Optional[str]
     name: Optional[str]
     url: Optional[str]
@@ -81,7 +81,7 @@ def convert_ny_to_scraper_info(nypuc_scraper: NyPUCScraperSchema) -> ScraperInfo
     return ScraperInfo(
         file_url=nypuc_scraper.url or "",
         name=nypuc_scraper.name or "",
-        published_date=nypuc_scraper.date_filed or None,
+        published_date=nypuc_scraper.date_filed or "",
         internal_source_name=nypuc_scraper.organization or "",
         docket_id=nypuc_scraper.serial or "",
         author_organisation=nypuc_scraper.organization or "",

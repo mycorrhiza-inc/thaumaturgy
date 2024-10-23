@@ -140,7 +140,7 @@ class GolangUpdateDocumentInfo(BaseModel):
 class ScraperInfo(BaseModel):
     file_url: str  # throw a get request at this url to get the file
     name: str = ""
-    published_date: Optional[date] = None
+    published_date: str = ""
     internal_source_name: str = ""
     docket_id: str = ""
     author_organisation: str = ""
