@@ -3,7 +3,12 @@ from common.misc_schemas import QueryData
 from common.file_schemas import DocumentStatus
 
 import logging
-from logic.filelogic import add_file_raw, process_fileid_raw
+from logic.filelogic import (
+    add_file_raw,
+    add_url_raw,
+    process_file_raw,
+    process_fileid_raw,
+)
 import asyncio
 from litestar.contrib.sqlalchemy.base import UUIDBase
 
@@ -14,6 +19,8 @@ from util.redis_utils import (
     convert_model_to_results_and_push,
     increment_doc_counter,
     pop_from_queue,
+    push_to_queue,
+    upsert_task,
 )
 import traceback
 
@@ -123,6 +130,7 @@ async def process_add_file_scraper(task: Task) -> None:
     assert isinstance(scraper_obj, ScraperInfo)
     logger = default_logger
     filetype = scraper_obj.file_type
+    file_url = scraper_obj.file_url
     metadata = {
         "url": scraper_obj.file_url,
         "doctype": filetype,
@@ -133,10 +141,39 @@ async def process_add_file_scraper(task: Task) -> None:
         "file_class": scraper_obj.file_class,
         "author_organisation": scraper_obj.author_organisation,
     }
-    result_file = add_url_raw()
+    try:
+        result_file = await add_url_raw(file_url, metadata)
+    except Exception as e:
+        print("Encountered error while adding file: {e}")
+        return_task = task
+        return_task.error = str(e)
+        upsert_task(return_task)
+    else:
+        return_task = task
+        task.obj = result_file
+        upsert_task(return_task)
 
 
 async def process_existing_file(task: Task) -> None:
     obj = task.obj
     assert isinstance(obj, GolangUpdateDocumentInfo)
     logger = default_logger
+    try:
+        result_file = await process_file_raw(
+            obj, stop_at=DocumentStatus.completed, priority=task.priority
+        )
+    except Exception as e:
+        print("Encountered error while adding file: {e}")
+        return_task = task
+        return_task.error = str(e)
+        upsert_task(return_task)
+    else:
+        return_task = task
+        task.obj = result_file
+        upsert_task(return_task)
+        process_task = Task(
+            priority=task.priority,
+            task_type=TaskType.process_existing_file,
+            obj=result_file,
+        )
+        push_to_queue(process_task)
