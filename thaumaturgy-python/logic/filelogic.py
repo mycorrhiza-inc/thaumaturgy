@@ -190,7 +190,8 @@ async def add_file_raw(
     if check_duplicate:
         if does_exist_file_with_hash(filehash):
             raise Exception("File Already exists in DB, erroring out.")
-    file_manager.backup_metadata_to_hash(metadata, filehash)
+    # FIXME: RENEABLE BACKUPS AT SOME POINT
+    # file_manager.backup_metadata_to_hash(metadata, filehash)
     new_file = GolangUpdateDocumentInfo(
         id=UUID("00000000-0000-0000-0000-000000000000"),
         url="N/A",

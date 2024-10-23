@@ -6,6 +6,7 @@
 # REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE = "docproc_background_daemon"
 # REDIS_DOCPROC_BACKGROUND_PROCESSING_STOPS_AT = "docproc_background_stop_at"
 # REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS = "docproc_currently_processing_docs"
+from datetime import date
 from pymilvus.client import re
 from constants import (
     REDIS_DOCPROC_QUEUE_KEY,
@@ -20,6 +21,8 @@ import redis
 import logging
 from uuid import UUID
 from common.task_schema import Task
+
+from datetime import datetime
 
 
 # TODO : Mabye asycnify all the redis calls
@@ -64,6 +67,7 @@ def push_to_queue(task: Task, redis_client: Optional[Any] = None) -> None:
 
 
 def upsert_task(task, redis_client: Optional[Any] = None) -> None:
+    task.updated_at = datetime.now()
     if redis_client is None:
         redis_client = default_redis_client
     assert isinstance(task, Task)
