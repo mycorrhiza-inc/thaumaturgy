@@ -43,7 +43,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.thaumaturgy-python.rule=PathPrefix(`/v1/`) "
-      - "traefik.http.routers.thaumaturgy-python.rule=Host(`thaum.kessler.xyz`) && PathPrefix(`/v1/`) "
+      - "traefik.http.routers.thaumaturgy-python.rule=Host(`thaum.kessler.xyz`) && (PathPrefix(`/v1/`)) || pathprefix(`/schema/`))"
       - "traefik.http.routers.thaumaturgy-python.entrypoints=websecure"
       - "traefik.http.routers.thaumaturgy-python.tls.certresolver=myresolver"
     command:
