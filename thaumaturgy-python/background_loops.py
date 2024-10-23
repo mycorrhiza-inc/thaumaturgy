@@ -89,10 +89,6 @@ async def main_processing_loop() -> None:
         try:
             asyncio.create_task(execute_task(task=pull_obj))
         except Exception as e:
-            tb = traceback.format_exc()
-            default_logger.error("Encountered error while processing a task.")
-            default_logger.error(e)
-            default_logger.error(tb)
             await asyncio.sleep(2)
             raise e
         finally:
@@ -143,8 +139,11 @@ async def process_add_file_scraper(task: Task) -> None:
     try:
         result_file = await add_url_raw(file_url, metadata)
     except Exception as e:
-        print("Encountered error while adding file: {e}")
+        tb = traceback.format_exc()
         return_task = task
+        logger.error(e)
+        logger.error(tb)
+        logger.error("Encountered error while adding file: {e}")
         return_task.error = str(e)
         upsert_task(return_task)
     else:
