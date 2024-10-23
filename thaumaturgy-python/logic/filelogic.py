@@ -1,5 +1,6 @@
 from typing_extensions import Doc
 from common.file_schemas import FileTextSchema
+from common.niclib import download_file
 from common.task_schema import Task, GolangUpdateDocumentInfo
 from common.llm_utils import KeLLMUtils
 import os
@@ -27,7 +28,7 @@ from typing import Optional
 
 import json
 
-from util.niclib import rand_string
+from common.niclib import rand_string
 
 
 from util.file_io import S3FileManager
@@ -130,10 +131,22 @@ async def upsert_full_file_to_db(
     )
 
 
+async def add_url_raw(
+    file_url: str,
+    metadata: dict,
+    check_duplicate: bool = False,
+) -> GolangUpdateDocumentInfo:
+    download_dir = OS_TMPDIR / Path("downloads")
+    result_path = await download_file(file_url, download_dir)
+    doctype = metadata.get("doctype")
+    if doctype is None or doctype == "":
+        doctype = result_path.suffix.lstrip(".")
+    return await add_file_raw(result_path, metadata, check_duplicate)
+
+
 async def add_file_raw(
     tmp_filepath: Path,
     metadata: dict,
-    process: bool,  # Figure out how to pass in a boolean as a query paramater
     check_duplicate: bool = False,
 ) -> GolangUpdateDocumentInfo:
     logger = default_logger

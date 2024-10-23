@@ -45,7 +45,7 @@ def pop_from_queue(redis_client: Optional[Any] = None) -> Optional[Task]:
     except Exception as e:
         logger.error(e)
         logger.error(request_string)
-        raise e
+        return None
     return obj
 
 

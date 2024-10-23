@@ -139,12 +139,14 @@ class GolangUpdateDocumentInfo(BaseModel):
 
 class ScraperInfo(BaseModel):
     file_url: str  # throw a get request at this url to get the file
-    name: str
-    published_date: str
-    internal_source_name: str
-    docket_id: str
-    author_organisation: str
-    file_class: str  # Decision, Public Comment, etc
+    name: str = ""
+    published_date: str = ""
+    internal_source_name: str = ""
+    docket_id: str = ""
+    author_organisation: str = ""
+    file_class: str = ""  # Decision, Public Comment, etc
+    file_type: str = ""  # PDF, DOCX, etc
+    lang: str = ""  # defaults to "en" unless otherwise specified
 
 
 def create_task(obj: Any, priority: bool, kwargs: dict = {}) -> Optional[Task]:

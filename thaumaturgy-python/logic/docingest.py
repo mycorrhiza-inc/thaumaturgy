@@ -1,6 +1,6 @@
-from util.niclib import seperate_markdown_string
+from common.niclib import seperate_markdown_string
 import yaml
-from util.niclib import rand_string, rand_filepath
+from common.niclib import rand_string, rand_filepath
 
 
 from typing import Optional, Any
@@ -9,7 +9,7 @@ import requests
 import urllib
 import mimetypes
 from pathlib import Path
-from util.niclib import rand_string, get_blake2
+from common.niclib import rand_string, get_blake2
 
 
 

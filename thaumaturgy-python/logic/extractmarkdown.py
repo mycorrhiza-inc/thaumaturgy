@@ -1,4 +1,4 @@
-from util.niclib import rand_string, rand_filepath
+from common.niclib import rand_string, rand_filepath
 
 # Note: Refactoring imports.py
 
@@ -20,7 +20,7 @@ from util.file_io import S3FileManager
 
 import yaml
 
-from util.niclib import create_markdown_string, seperate_markdown_string
+from common.niclib import create_markdown_string, seperate_markdown_string
 
 
 class MarkdownExtractor:

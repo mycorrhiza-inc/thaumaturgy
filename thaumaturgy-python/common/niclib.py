@@ -135,7 +135,7 @@ def secs_since_1970() -> int:
     return int(datetime.now(timezone.utc).timestamp())
 
 
-def download_file(url: str, savedir: Path) -> Path:
+async def download_file(url: str, savedir: Path) -> Path:
     # TODO: Use a temporary directory for downloads or archive it in some other way.
     local_filename = savedir
     # NOTE the stream=True parameter below

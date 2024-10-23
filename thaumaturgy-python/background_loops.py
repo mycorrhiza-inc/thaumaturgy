@@ -3,7 +3,7 @@ from common.misc_schemas import QueryData
 from common.file_schemas import DocumentStatus
 
 import logging
-from logic.filelogic import process_fileid_raw
+from logic.filelogic import add_file_raw, process_fileid_raw
 import asyncio
 from litestar.contrib.sqlalchemy.base import UUIDBase
 
@@ -119,9 +119,21 @@ async def execute_task(task: Task) -> None:
 
 
 async def process_add_file_scraper(task: Task) -> None:
-    obj = task.obj
-    assert isinstance(obj, ScraperInfo)
+    scraper_obj = task.obj
+    assert isinstance(scraper_obj, ScraperInfo)
     logger = default_logger
+    filetype = scraper_obj.file_type
+    metadata = {
+        "url": scraper_obj.file_url,
+        "doctype": filetype,
+        "lang": "",
+        "name": scraper_obj.lang,
+        "source": scraper_obj.internal_source_name,
+        "date": scraper_obj.published_date,
+        "file_class": scraper_obj.file_class,
+        "author_organisation": scraper_obj.author_organisation,
+    }
+    result_file = add_url_raw()
 
 
 async def process_existing_file(task: Task) -> None:
