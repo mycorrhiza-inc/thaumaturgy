@@ -1,5 +1,6 @@
 from typing_extensions import Doc
-from common.file_schemas import GolangUpdateDocumentInfo, FileTextSchema
+from common.file_schemas import FileTextSchema
+from common.task_schema import Task, GolangUpdateDocumentInfo
 from common.llm_utils import KeLLMUtils
 import os
 from pathlib import Path
@@ -43,7 +44,6 @@ import logging
 
 default_logger = logging.getLogger(__name__)
 
-from common.task_schema import Task
 
 # class FileTextSchema(BaseModel):
 #     file_id: UUID
@@ -108,10 +108,9 @@ async def upsert_full_file_to_db(
     if insert:
         url = f"https://kessler.xyz/api/v2/public/files/insert"
     else:
-        id = str(obj.i)
+        id = str(obj.id)
         url = f"https://kessler.xyz/api/v2/public/files/{id}"
-    json_data = obj.dict()
-    json_data["id"] = str(obj.id)
+    json_data = obj.model_dump()
     for _ in range(5):
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=json_data) as response:
@@ -182,17 +181,17 @@ async def add_file_raw(
     new_file = GolangUpdateDocumentInfo(
         id=UUID("00000000-0000-0000-0000-000000000000"),
         url="N/A",
-        name=metadata.get("title"),
-        doctype=metadata.get("doctype"),
-        lang=metadata.get("lang"),
-        source=metadata.get("source"),
+        name=metadata.get("title", "") or "",
+        doctype=metadata.get("doctype", "") or "",
+        lang=metadata.get("lang", "") or "",
+        source=metadata.get("source", "") or "",
         mdata=metadata,
         stage=(DocumentStatus.unprocessed).value,
         hash=filehash,
-        summary=None,
-        short_summary=None,
+        summary="",
+        short_summary="",
     )
-    file_from_server = upsert_full_file_to_db(new_file, insert=True)
+    file_from_server = await upsert_full_file_to_db(new_file, insert=True)
     return file_from_server
 
 
@@ -285,7 +284,6 @@ async def process_file_raw(
             return DocumentStatus.stage3
         else:
             text["original_text"] = processed_original_text
-            obj.original_text = processed_original_text
             return DocumentStatus.stage2
 
     # text conversion
@@ -322,7 +320,7 @@ async def process_file_raw(
         json_data = {
             "hash": obj.hash,
             "id": str(obj.id),
-            "metadata": json.loads(obj.mdata),
+            "metadata": json.dumps(obj.mdata),
         }
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=json_data) as response:
