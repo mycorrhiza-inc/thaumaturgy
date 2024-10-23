@@ -14,7 +14,7 @@ import redis
 from util.redis_utils import (
     clear_file_queue,
     increment_doc_counter,
-    pop_from_queue,
+    pop_task_from_queue,
     push_to_queue,
     upsert_task,
 )
@@ -80,7 +80,7 @@ async def main_processing_loop() -> None:
         if concurrent_docs >= max_concurrent_docs:
             await asyncio.sleep(2)
             return None
-        pull_obj = pop_from_queue(redis_client=redis_client)
+        pull_obj = pop_task_from_queue(redis_client=redis_client)
         if pull_obj is None:
             await asyncio.sleep(2)
             return None
@@ -115,8 +115,10 @@ def initialize_background_loops() -> None:
 async def execute_task(task: Task) -> None:
     match task.task_type:
         case TaskType.add_file_scraper:
+            task.obj = ScraperInfo.model_validate(task.obj)
             await process_add_file_scraper(task)
         case TaskType.process_existing_file:
+            task.obj = GolangUpdateDocumentInfo.model_validate(task.obj)
             await process_existing_file(task)
 
 

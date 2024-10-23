@@ -30,7 +30,7 @@ default_redis_client = redis.Redis(
 default_logger = logging.getLogger(__name__)
 
 
-def pop_from_queue(redis_client: Optional[Any] = None) -> Optional[Task]:
+def pop_task_from_queue(redis_client: Optional[Any] = None) -> Optional[Task]:
     logger = default_logger
     if redis_client is None:
         redis_client = default_redis_client
