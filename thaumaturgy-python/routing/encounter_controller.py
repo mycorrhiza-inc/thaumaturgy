@@ -68,7 +68,7 @@ import redis
 redis_client = redis.Redis(REDIS_HOST, port=REDIS_PORT)
 
 
-def push_to_queue(request: str, priority: bool):
+def task_push_to_queue(request: str, priority: bool):
     if priority:
         pushkey = REDIS_DOCPROC_QUEUE_KEY
     else:

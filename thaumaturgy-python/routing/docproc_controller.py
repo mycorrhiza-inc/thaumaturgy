@@ -32,7 +32,7 @@ import redis
 import uuid
 from datetime import date, datetime
 
-from util.redis_utils import get_task, push_to_queue
+from util.redis_utils import task_get, task_push_to_queue
 
 redis_client = redis.Redis(REDIS_HOST, port=REDIS_PORT)
 
@@ -104,7 +104,7 @@ class DocumentProcesserController(Controller):
         self,
         task_id: uuid.UUID = Parameter(title="Task ID", description="Task to retieve"),
     ) -> Response:
-        task = get_task(task_id)
+        task = task_get(task_id)
         if task is None:
             return Response(status_code=404, content="Task not found")
         return Response(status_code=200, content=task)
@@ -116,7 +116,7 @@ class DocumentProcesserController(Controller):
         task = create_task(data, priority, kwargs={})
         if task is None:
             raise Exception("Unable to create task")
-        push_to_queue(task)
+        task_push_to_queue(task)
         return task
 
     # https://thaum.kessler.xyz/v1/process-scraped-doc
@@ -127,7 +127,7 @@ class DocumentProcesserController(Controller):
         task = create_task(data, priority, kwargs={})
         if task is None:
             raise Exception("Unable to create task")
-        push_to_queue(task)
+        task_push_to_queue(task)
         return task
 
     @post(path="/process-scraped-doc/ny-puc")
@@ -138,5 +138,5 @@ class DocumentProcesserController(Controller):
         task = create_task(actual_data, priority, kwargs={})
         if task is None:
             raise Exception("Unable to create task")
-        push_to_queue(task)
+        task_push_to_queue(task)
         return task

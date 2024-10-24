@@ -14,9 +14,9 @@ import redis
 from util.redis_utils import (
     clear_file_queue,
     increment_doc_counter,
-    pop_task_from_queue,
-    push_to_queue,
-    upsert_task,
+    task_pop_from_queue,
+    task_push_to_queue,
+    task_upsert,
 )
 import traceback
 
@@ -80,7 +80,7 @@ async def main_processing_loop() -> None:
         if concurrent_docs >= max_concurrent_docs:
             await asyncio.sleep(2)
             return None
-        pull_obj = pop_task_from_queue(redis_client=redis_client)
+        pull_obj = task_pop_from_queue(redis_client=redis_client)
         if pull_obj is None:
             await asyncio.sleep(2)
             return None
@@ -152,12 +152,12 @@ async def process_add_file_scraper(task: Task) -> None:
         logger.error("Encountered error while adding file: {e}")
         return_task.error = str(e)
         task.completed = True
-        upsert_task(return_task)
+        task_upsert(return_task)
     else:
         return_task = task
         task.obj = result_file
         task.completed = True
-        upsert_task(return_task)
+        task_upsert(return_task)
 
 
 async def process_existing_file(task: Task) -> None:
@@ -176,15 +176,15 @@ async def process_existing_file(task: Task) -> None:
         logger.error("Encountered error while adding file: {e}")
         return_task.error = str(e)
         task.completed = True
-        upsert_task(return_task)
+        task_upsert(return_task)
     else:
         return_task = task
         task.obj = result_file
-        upsert_task(return_task)
+        task_upsert(return_task)
         process_task = Task(
             priority=task.priority,
             task_type=TaskType.process_existing_file,
             obj=result_file,
         )
 
-        push_to_queue(process_task)
+        task_push_to_queue(process_task)

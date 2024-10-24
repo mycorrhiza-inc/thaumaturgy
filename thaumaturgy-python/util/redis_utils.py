@@ -33,7 +33,7 @@ default_redis_client = redis.Redis(
 default_logger = logging.getLogger(__name__)
 
 
-def pop_task_from_queue(redis_client: Optional[Any] = None) -> Optional[Task]:
+def task_pop_from_queue(redis_client: Optional[Any] = None) -> Optional[Task]:
     logger = default_logger
     if redis_client is None:
         redis_client = default_redis_client
@@ -52,7 +52,8 @@ def pop_task_from_queue(redis_client: Optional[Any] = None) -> Optional[Task]:
     return obj
 
 
-def push_to_queue(task: Task, redis_client: Optional[Any] = None) -> None:
+def task_push_to_queue(task: Task, redis_client: Optional[Any] = None) -> None:
+    logger = default_logger
     if redis_client is None:
         redis_client = default_redis_client
     assert isinstance(task, Task)
@@ -63,10 +64,11 @@ def push_to_queue(task: Task, redis_client: Optional[Any] = None) -> None:
         pushkey = REDIS_DOCPROC_PRIORITYQUEUE_KEY
     json_str = task.model_dump_json()
     redis_client.rpush(pushkey, json_str)
-    upsert_task(task, redis_client)
+    task_upsert(task, redis_client)
+    logger.info(f"Pushed task of type {task.task_type.value} to queue: {task.id}")
 
 
-def upsert_task(task, redis_client: Optional[Any] = None) -> None:
+def task_upsert(task, redis_client: Optional[Any] = None) -> None:
     task.updated_at = datetime.now()
     if redis_client is None:
         redis_client = default_redis_client
@@ -76,7 +78,7 @@ def upsert_task(task, redis_client: Optional[Any] = None) -> None:
     redis_client.set(string_id, json_str)
 
 
-def get_task(task_id: UUID, redis_client: Optional[Any] = None) -> Optional[Task]:
+def task_get(task_id: UUID, redis_client: Optional[Any] = None) -> Optional[Task]:
     if redis_client is None:
         redis_client = default_redis_client
     uuid_str = str(task_id)
