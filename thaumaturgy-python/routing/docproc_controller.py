@@ -130,11 +130,15 @@ class DocumentProcesserController(Controller):
         task_push_to_queue(task)
         return task
 
-    @post(path="/process-scraped-doc/ny-puc")
+    @post(path="/process-scraped-doc/ny-puc/{docket_id:str}")
     async def process_nypuc_scraped_document_handler(
-        self, data: NyPUCScraperSchema, priority: bool
+        self,
+        data: NyPUCScraperSchema,
+        priority: bool,
+        docket_id: str = Parameter(title="Docket ID", description="Docket ID"),
     ) -> Task:
         actual_data = convert_ny_to_scraper_info(data)
+        actual_data.docket_id = docket_id
         task = create_task(actual_data, priority, kwargs={})
         if task is None:
             raise Exception("Unable to create task")
