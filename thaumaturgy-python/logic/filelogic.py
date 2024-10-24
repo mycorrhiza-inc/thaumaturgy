@@ -109,10 +109,10 @@ async def upsert_full_file_to_db(
     logger = default_logger
     # FIXME: Absolutely no clue why the ny is necessary, fix routing in traefik
     if insert:
-        url = f"https://ny.kessler.xyz/api/v2/public/files/insert"
+        url = f"https://api.kessler.xyz/v2/public/files/insert"
     else:
         id = str(obj.id)
-        url = f"https://ny.kessler.xyz/api/v2/public/files/{id}"
+        url = f"https://api.kessler.xyz/v2/public/files/{id}"
     json_data = json.loads(obj.model_dump_json())
     for _ in range(5):
         async with aiohttp.ClientSession() as session:
