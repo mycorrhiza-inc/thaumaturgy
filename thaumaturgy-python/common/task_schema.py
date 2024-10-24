@@ -147,6 +147,7 @@ class ScraperInfo(BaseModel):
     file_class: str = ""  # Decision, Public Comment, etc
     file_type: str = ""  # PDF, DOCX, etc
     lang: str = ""  # defaults to "en" unless otherwise specified
+    item_number: str = ""
 
 
 def create_task(obj: Any, priority: bool, kwargs: dict = {}) -> Optional[Task]:

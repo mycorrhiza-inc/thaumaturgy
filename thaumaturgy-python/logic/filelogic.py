@@ -118,10 +118,12 @@ async def upsert_full_file_to_db(
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=json_data) as response:
                 response_code = response.status
-                if response_code >= 200 and response_code < 300:
+                if response_code == 200:
                     try:
                         response_json = await response.json()
                         # Validate and cast to GolangUpdateDocumentInfo
+                        logger.info("File uploaded to db")
+                        logger.info(response_json)
                         golang_update_info = GolangUpdateDocumentInfo(**response_json)
                         return golang_update_info
                     except (ValueError, TypeError, KeyError) as e:

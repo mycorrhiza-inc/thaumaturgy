@@ -90,6 +90,7 @@ def convert_ny_to_scraper_info(nypuc_scraper: NyPUCScraperSchema) -> ScraperInfo
             nypuc_scraper.file_name.split(".")[-1] if nypuc_scraper.file_name else ""
         ),
         lang="en",  # Assuming default language is "en"
+        item_number=nypuc_scraper.itemNo or "",
     )
 
 

@@ -109,6 +109,8 @@ def initialize_background_loops() -> None:
 
 
 async def execute_task(task: Task) -> None:
+    logger = default_logger
+    logger.info(f"Executing task of type {task.task_type.value}: {task.id}")
     match task.task_type:
         case TaskType.add_file_scraper:
             task.obj = ScraperInfo.model_validate(task.obj)
@@ -116,6 +118,8 @@ async def execute_task(task: Task) -> None:
         case TaskType.process_existing_file:
             task.obj = GolangUpdateDocumentInfo.model_validate(task.obj)
             await process_existing_file(task)
+
+    logger.info(f"Finished executing task of type {task.task_type.value}: {task.id}")
 
 
 async def process_add_file_scraper(task: Task) -> None:
@@ -130,11 +134,13 @@ async def process_add_file_scraper(task: Task) -> None:
         "url": scraper_obj.file_url,
         "doctype": filetype,
         "lang": "",
-        "title": scraper_obj.lang,
+        "title": scraper_obj.name,
         "source": scraper_obj.internal_source_name,
         "date": scraper_obj.published_date,
         "file_class": scraper_obj.file_class,
         "author_organisation": scraper_obj.author_organisation,
+        "author": scraper_obj.author_organisation,
+        "item_number": scraper_obj.item_number,
     }
     try:
         result_file = await add_url_raw(file_url, metadata)
@@ -145,10 +151,12 @@ async def process_add_file_scraper(task: Task) -> None:
         logger.error(tb)
         logger.error("Encountered error while adding file: {e}")
         return_task.error = str(e)
+        task.completed = True
         upsert_task(return_task)
     else:
         return_task = task
         task.obj = result_file
+        task.completed = True
         upsert_task(return_task)
 
 
@@ -167,6 +175,7 @@ async def process_existing_file(task: Task) -> None:
         logger.error(tb)
         logger.error("Encountered error while adding file: {e}")
         return_task.error = str(e)
+        task.completed = True
         upsert_task(return_task)
     else:
         return_task = task
@@ -177,4 +186,5 @@ async def process_existing_file(task: Task) -> None:
             task_type=TaskType.process_existing_file,
             obj=result_file,
         )
+
         push_to_queue(process_task)
