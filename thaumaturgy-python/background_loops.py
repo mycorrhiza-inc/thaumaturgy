@@ -184,8 +184,8 @@ async def process_existing_file(task: Task) -> None:
         return_task = task
         logger.error(e)
         logger.error(tb)
-        logger.error("Encountered error while adding file: {e}")
-        return_task.error = str(e)
+        logger.error(f"encountered error while adding file: {e}")
+        return_task.error = f"encountered error while adding file: {e}, \n {tb}"
         task.completed = True
         task_upsert(return_task)
     else:

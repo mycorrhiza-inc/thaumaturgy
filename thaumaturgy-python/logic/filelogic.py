@@ -211,6 +211,9 @@ async def add_file_raw(
         summary="",
         short_summary="",
     )
+    mock = True
+    if mock:
+        return new_file
     file_from_server = await upsert_full_file_to_db(new_file, insert=True)
     assert file_from_server.id != UUID("00000000-0000-0000-0000-000000000000")
     return file_from_server
