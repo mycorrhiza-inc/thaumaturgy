@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 
 
+MOCK_DB_CONNECTION = True
+
 KESSLER_URL = "https://app.kessler.xyz/"
 
 DATALAB_API_KEY = os.environ["DATALAB_API_KEY"]

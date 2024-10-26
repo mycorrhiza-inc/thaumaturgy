@@ -35,7 +35,13 @@ from util.file_io import S3FileManager
 
 # import base64
 
-from constants import KESSLER_URL, OS_TMPDIR, OS_HASH_FILEDIR, OS_BACKUP_FILEDIR
+from constants import (
+    KESSLER_URL,
+    OS_TMPDIR,
+    OS_HASH_FILEDIR,
+    OS_BACKUP_FILEDIR,
+    MOCK_DB_CONNECTION,
+)
 
 import asyncio
 import aiohttp
@@ -44,53 +50,6 @@ import aiohttp
 import logging
 
 default_logger = logging.getLogger(__name__)
-
-
-# class FileTextSchema(BaseModel):
-#     file_id: UUID
-#     is_original_text: bool
-#     language: str
-#     text: str
-
-# class GolangUpdateDocumentInfo(BaseModel):
-#     id: UUID
-#     url: str | None = None
-#     hash: str | None = None
-#     doctype: str | None = None
-#     lang: str | None = None
-#     name: str | None = None
-#     source: str | None = None
-#     stage: str | None = None
-#     short_summary: str | None = None
-#     summary: str | None = None
-#     organization_id: UUID | None = None
-#     mdata: Dict[str, Any] = {}
-#     texts: List[FileTextSchema] = []
-#     authors: List[IndividualSchema] = []
-#     organization: OrganizationSchema | None = None
-#
-
-
-# class DocTextInfo(BaseModel):
-#     language: str
-#     text: str
-#     is_original_text: bool
-#
-#
-# class GolangUpdateDocumentInfo(BaseModel):
-#     id: Optional[uuid.UUID] = None
-#     url: str
-#     doctype: str
-#     lang: str
-#     name: str
-#     source: str
-#     hash: str
-#     mdata: dict[str, Any]
-#     stage: str
-#     summary: str
-#     short_summary: str
-#     private: bool
-#     doc_texts: list[DocTextInfo]
 
 
 async def does_exist_file_with_hash(hash: str) -> bool:
@@ -106,6 +65,8 @@ async def does_exist_file_with_hash(hash: str) -> bool:
 async def upsert_full_file_to_db(
     obj: GolangUpdateDocumentInfo, insert: bool
 ) -> GolangUpdateDocumentInfo:
+    if MOCK_DB_CONNECTION:
+        return obj
     logger = default_logger
     # FIXME: Absolutely no clue why the ny is necessary, fix routing in traefik
     if insert:
@@ -211,9 +172,6 @@ async def add_file_raw(
         summary="",
         short_summary="",
     )
-    mock = True
-    if mock:
-        return new_file
     file_from_server = await upsert_full_file_to_db(new_file, insert=True)
     assert file_from_server.id != UUID("00000000-0000-0000-0000-000000000000")
     return file_from_server
