@@ -18,6 +18,7 @@ class TaskType(str, Enum):
 
 class Task(BaseModel):
     id: uuid.UUID = uuid.uuid4()
+    url: str = f"https://thaum.kessler.xyz/v1/status/"
     priority: bool = True
     task_type: TaskType
     table_name: str = ""
@@ -151,6 +152,14 @@ class ScraperInfo(BaseModel):
     item_number: str = ""
 
 
+def task_rectify(task: Task) -> Task:
+    if id == uuid.UUID("00000000-0000-0000-0000-000000000000"):
+        task.id = uuid.uuid4()
+    task.updated_at = datetime.now()
+    task.url = f"https://thaum.kessler.xyz/v1/status/{task.id}"
+    return task
+
+
 def create_task(obj: Any, priority: bool, kwargs: dict = {}) -> Optional[Task]:
     def determine_task_type(obj: Any) -> Optional[TaskType]:
         if isinstance(obj, GolangUpdateDocumentInfo):
@@ -163,4 +172,6 @@ def create_task(obj: Any, priority: bool, kwargs: dict = {}) -> Optional[Task]:
     task_type = determine_task_type(obj)
     if task_type is None:
         return None
-    return Task(task_type=task_type, kwargs=kwargs, priority=priority, obj=obj)
+    task = Task(task_type=task_type, kwargs=kwargs, priority=priority, obj=obj)
+    task = task_rectify(task)
+    return task
