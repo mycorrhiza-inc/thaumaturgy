@@ -160,7 +160,9 @@ def task_rectify(task: Task) -> Task:
     return task
 
 
-def create_task(obj: Any, priority: bool, kwargs: dict = {}) -> Optional[Task]:
+def create_task(
+    obj: Any, priority: bool, kwargs: dict = {}, task_type: Optional[TaskType] = None
+) -> Optional[Task]:
     def determine_task_type(obj: Any) -> Optional[TaskType]:
         if isinstance(obj, GolangUpdateDocumentInfo):
             return TaskType.process_existing_file
@@ -169,9 +171,11 @@ def create_task(obj: Any, priority: bool, kwargs: dict = {}) -> Optional[Task]:
 
         return None
 
-    task_type = determine_task_type(obj)
-    if task_type is None:
+    computed_task_type = determine_task_type(obj)
+    if task_type is not None:
+        assert computed_task_type == task_type
+    if computed_task_type is None:
         return None
-    task = Task(task_type=task_type, kwargs=kwargs, priority=priority, obj=obj)
+    task = Task(task_type=computed_task_type, kwargs=kwargs, priority=priority, obj=obj)
     task = task_rectify(task)
     return task

@@ -27,7 +27,13 @@ from constants import (
 )
 
 from pydantic import BaseModel
-from common.task_schema import GolangUpdateDocumentInfo, ScraperInfo, Task, TaskType
+from common.task_schema import (
+    GolangUpdateDocumentInfo,
+    ScraperInfo,
+    Task,
+    TaskType,
+    create_task,
+)
 
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 default_logger = logging.getLogger(__name__)
@@ -190,12 +196,10 @@ async def process_existing_file(task: Task) -> None:
         task_upsert(return_task)
     else:
         return_task = task
-        task.obj = result_file
+        return_task.obj = result_file
         task_upsert(return_task)
-        process_task = Task(
-            priority=task.priority,
-            task_type=TaskType.process_existing_file,
-            obj=result_file,
+        process_task = create_task(
+            result_file, False, kwargs={}, task_type=TaskType.process_existing_file
         )
-
-        task_push_to_queue(process_task)
+        if process_task is not None:
+            task_push_to_queue(process_task)
