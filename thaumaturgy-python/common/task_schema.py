@@ -69,7 +69,9 @@ class ScraperInfo(BaseModel):
 
 
 def task_rectify(task: Task) -> Task:
-    assert task.id != uuid.UUID("00000000-0000-0000-0000-000000000000")
+    assert task.id != uuid.UUID(
+        "00000000-0000-0000-0000-000000000000"
+    ), "Task has a null UUID"
     task.updated_at = datetime.now()
     task.url = f"https://thaum.kessler.xyz/v1/status/{task.id}"
     return task

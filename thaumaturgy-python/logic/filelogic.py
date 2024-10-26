@@ -1,3 +1,4 @@
+import uuid
 from typing_extensions import Doc
 from common.file_schemas import FileTextSchema
 from common.niclib import download_file
@@ -160,7 +161,7 @@ async def add_file_raw(
     # FIXME: RENEABLE BACKUPS AT SOME POINT
     # file_manager.backup_metadata_to_hash(metadata, filehash)
     new_file = GolangUpdateDocumentInfo(
-        id=UUID("00000000-0000-0000-0000-000000000000"),
+        id=uuid.uuid4(),
         url="N/A",
         name=metadata.get("title", "") or "",
         doctype=metadata.get("doctype", "") or "",
@@ -173,7 +174,9 @@ async def add_file_raw(
         short_summary="",
     )
     file_from_server = await upsert_full_file_to_db(new_file, insert=True)
-    assert file_from_server.id != UUID("00000000-0000-0000-0000-000000000000")
+    assert file_from_server.id != UUID(
+        "00000000-0000-0000-0000-000000000000"
+    ), "File has a null UUID"
     return file_from_server
 
 
