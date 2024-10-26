@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from constants import OS_TMPDIR, DATALAB_API_KEY, MARKER_ENDPOINT_URL, OPENAI_API_KEY
 
 
-global_marker_server_urls = ["https://marker.kessler.xyz"]
+global_marker_server_urls = ["http://marker.kessler.xyz"]
 
 default_logger = logging.getLogger(__name__)
 
