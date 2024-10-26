@@ -153,8 +153,7 @@ class ScraperInfo(BaseModel):
 
 
 def task_rectify(task: Task) -> Task:
-    if id == uuid.UUID("00000000-0000-0000-0000-000000000000"):
-        task.id = uuid.uuid4()
+    assert task.id != uuid.UUID("00000000-0000-0000-0000-000000000000")
     task.updated_at = datetime.now()
     task.url = f"https://thaum.kessler.xyz/v1/status/{task.id}"
     return task
@@ -177,5 +176,7 @@ def create_task(
     if computed_task_type is None:
         return None
     task = Task(task_type=computed_task_type, kwargs=kwargs, priority=priority, obj=obj)
+    # Sometimes the uuid's that are computed on each task are the same, so hopefully this recomputation reduces those allegedly impossible duplicates.
+    task.id = uuid.uuid4()
     task = task_rectify(task)
     return task

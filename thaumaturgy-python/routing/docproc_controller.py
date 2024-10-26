@@ -31,7 +31,13 @@ from util.redis_utils import task_get, task_push_to_queue
 redis_client = redis.Redis(REDIS_HOST, port=REDIS_PORT)
 
 
-from common.task_schema import ScraperInfo, Task, create_task, GolangUpdateDocumentInfo
+from common.task_schema import (
+    ScraperInfo,
+    Task,
+    TaskType,
+    create_task,
+    GolangUpdateDocumentInfo,
+)
 
 
 class DaemonState(BaseModel):
@@ -107,7 +113,9 @@ class DocumentProcesserController(Controller):
     async def process_existing_document_handler(
         self, data: GolangUpdateDocumentInfo, priority: bool
     ) -> Task:
-        task = create_task(data, priority, kwargs={})
+        task = create_task(
+            data, priority, kwargs={}, task_type=TaskType.process_existing_file
+        )
         if task is None:
             raise Exception("Unable to create task")
         task_push_to_queue(task)
@@ -118,7 +126,9 @@ class DocumentProcesserController(Controller):
     async def process_scraped_document_handler(
         self, data: ScraperInfo, priority: bool
     ) -> Task:
-        task = create_task(data, priority, kwargs={})
+        task = create_task(
+            data, priority, kwargs={}, task_type=TaskType.add_file_scraper
+        )
         if task is None:
             raise Exception("Unable to create task")
         task_push_to_queue(task)
@@ -133,7 +143,9 @@ class DocumentProcesserController(Controller):
     ) -> Task:
         actual_data = convert_ny_to_scraper_info(data)
         actual_data.docket_id = docket_id
-        task = create_task(actual_data, priority, kwargs={})
+        task = create_task(
+            actual_data, priority, kwargs={}, task_type=TaskType.add_file_scraper
+        )
         if task is None:
             raise Exception("Unable to create task")
         task_push_to_queue(task)
