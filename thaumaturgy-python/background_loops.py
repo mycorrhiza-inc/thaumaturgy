@@ -168,15 +168,19 @@ async def process_add_file_scraper(task: Task) -> None:
         return_task.obj = result_file
         return_task.completed = True
         return_task.success = True
-        new_task = Task(
+        new_task = create_task(
+            obj=result_file,
             priority=task.priority,
             task_type=TaskType.process_existing_file,
-            obj=result_file,
         )
-        return_task.followup_task_id = new_task.id
-        return_task.followup_task_url = new_task.url
+        if new_task is not None:
+            return_task.followup_task_id = new_task.id
+            return_task.followup_task_url = new_task.url
+            task_push_to_queue(new_task)
         task_upsert(return_task)
-        task_push_to_queue(new_task)
+        assert (
+            new_task is not None
+        ), "Encountered logic error relating to an empty task, create task on those inputs should never make an empty task."
 
 
 async def process_existing_file(task: Task) -> None:
