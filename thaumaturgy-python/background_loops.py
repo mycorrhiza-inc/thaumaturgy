@@ -168,12 +168,14 @@ async def process_add_file_scraper(task: Task) -> None:
         return_task.obj = result_file
         return_task.completed = True
         return_task.success = True
-        task_upsert(return_task)
         new_task = Task(
             priority=task.priority,
             task_type=TaskType.process_existing_file,
             obj=result_file,
         )
+        return_task.followup_task_id = new_task.id
+        return_task.followup_task_url = new_task.url
+        task_upsert(return_task)
         task_push_to_queue(new_task)
 
 
