@@ -155,12 +155,20 @@ async def process_add_file_scraper(task: Task) -> None:
         return_task.success = False
         task_upsert(return_task)
     else:
-        logger.info(f"File addition step execute successfully")
+        logger.info(
+            f"File addition step execute successfully, adding a document processing event to the queue."
+        )
         return_task = task
         return_task.obj = result_file
         return_task.completed = True
         return_task.success = True
         task_upsert(return_task)
+        new_task = Task(
+            priority=task.priority,
+            task_type=TaskType.process_existing_file,
+            obj=result_file,
+        )
+        task_push_to_queue(new_task)
 
 
 async def process_existing_file(task: Task) -> None:
