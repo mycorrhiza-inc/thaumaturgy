@@ -14,7 +14,7 @@ class TranscribedNote(BaseModel):
     summary: Optional[str] = None
 
 
-llm = KeLLMUtils("llama70b")
+llm = KeLLMUtils("llama-70b")
 
 
 # Moving this to another file might be a good idea. Plus throwing the semantic splitter to split on sentnaces is probably a good idea.

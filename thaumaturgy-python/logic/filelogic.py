@@ -259,7 +259,7 @@ async def process_file_raw(
     logger.info(type(obj))
     logger.info(obj)
     current_stage = DocumentStatus(obj.stage)
-    llm = KeLLMUtils("llama70b")  # M6yabe replace with something cheeper.
+    llm = KeLLMUtils("llama-70b")  # M6yabe replace with something cheeper.
     logger.info(obj.doctype)
     mdextract = MarkdownExtractor(logger, OS_TMPDIR, priority=priority)
     file_manager = S3FileManager(logger=logger)

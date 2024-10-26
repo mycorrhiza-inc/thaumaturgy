@@ -50,17 +50,18 @@ handler = logging.StreamHandler(sys.stderr)
 def get_llm_from_model_str(model_name: Optional[str]):
     if model_name is None:
         model_name = "llama-405b"
-    if model_name in ["llama-8b", "llama-3.1-8b-instant"]:
+    if model_name in ["llama8b", "llama-8b", "llama-3.1-8b-instant"]:
         actual_name = "llama-3.1-8b-instant"
         return Groq(model=actual_name, request_timeout=60.0, api_key=GROQ_API_KEY)
     if model_name in [
+        "llama70b",
         "llama-70b",
         "llama3-70b-8192",
         "llama-3.1-70b-versatile",
     ]:
         actual_name = "llama-3.1-70b-versatile"
         return Groq(model=actual_name, request_timeout=60.0, api_key=GROQ_API_KEY)
-    if model_name in ["llama-405b", "llama-3.1-405b-reasoning"]:
+    if model_name in ["llama405b", "llama-405b", "llama-3.1-405b-reasoning"]:
         actual_name = "accounts/fireworks/models/llama-v3p1-405b-instruct"
         return Fireworks(model=actual_name, api_key=FIREWORKS_API_KEY)
     if model_name in ["gpt-4o"]:
