@@ -26,6 +26,7 @@ class Task(BaseModel):
     updated_at: datetime = datetime.now()
     error: str | None = None
     completed: bool = False
+    success: bool = False
     obj: Any
 
 

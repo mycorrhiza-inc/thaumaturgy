@@ -151,12 +151,15 @@ async def process_add_file_scraper(task: Task) -> None:
         logger.error(tb)
         logger.error("Encountered error while adding file: {e}")
         return_task.error = str(e)
-        task.completed = True
+        return_task.completed = True
+        return_task.success = False
         task_upsert(return_task)
     else:
+        logger.info(f"File addition step execute successfully")
         return_task = task
-        task.obj = result_file
-        task.completed = True
+        return_task.obj = result_file
+        return_task.completed = True
+        return_task.success = True
         task_upsert(return_task)
 
 
