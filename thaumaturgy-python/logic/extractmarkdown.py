@@ -43,7 +43,7 @@ class MarkdownExtractor:
     async def process_raw_document_into_untranslated_text_from_hash(
         self, hash: str, metadata: dict, override_dir: Optional[Path] = None
     ) -> Tuple[str, dict]:
-        doctype = metadata["doctype"]
+        doctype = metadata["extension"]
         lang = metadata["lang"]
 
         async def process_pdf(s3_uri: str) -> str:

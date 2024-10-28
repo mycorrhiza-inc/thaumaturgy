@@ -1,6 +1,6 @@
 import uuid
 from typing_extensions import Doc
-from common.file_schemas import FileTextSchema
+from common.file_schemas import CompleteFileSchema, FileTextSchema
 from common.niclib import download_file
 from common.task_schema import Task, GolangUpdateDocumentInfo
 from common.llm_utils import KeLLMUtils
@@ -106,7 +106,7 @@ async def add_url_raw(
 ) -> GolangUpdateDocumentInfo:
     download_dir = OS_TMPDIR / Path("downloads")
     result_path = await download_file(file_url, download_dir)
-    doctype = metadata.get("doctype")
+    doctype = metadata.get("extension")
     if doctype is None or doctype == "":
         doctype = result_path.suffix.lstrip(".")
     return await add_file_raw(result_path, metadata, check_duplicate)
@@ -126,7 +126,7 @@ async def add_file_raw(
             metadata["lang"] = "en"
         try:
             assert isinstance(metadata.get("title"), str)
-            assert isinstance(metadata.get("doctype"), str)
+            assert isinstance(metadata.get("extension"), str)
             assert isinstance(metadata.get("lang"), str)
         except Exception:
             logger.error("Illformed Metadata please fix")
@@ -139,8 +139,8 @@ async def add_file_raw(
         else:
             logger.info("Title, Doctype and language successfully declared")
 
-        if (metadata["doctype"])[0] == ".":
-            metadata["doctype"] = (metadata["doctype"])[1:]
+        if (metadata["extension"])[0] == ".":
+            metadata["extension"] = (metadata["extension"])[1:]
         if metadata.get("source") is None:
             metadata["source"] = "unknown"
         metadata["language"] = metadata["lang"]
@@ -160,11 +160,10 @@ async def add_file_raw(
             raise Exception("File Already exists in DB, erroring out.")
     # FIXME: RENEABLE BACKUPS AT SOME POINT
     # file_manager.backup_metadata_to_hash(metadata, filehash)
-    new_file = GolangUpdateDocumentInfo(
+    new_file = CompleteFileSchema(
         id=uuid.uuid4(),
-        url="N/A",
         name=metadata.get("title", "") or "",
-        doctype=metadata.get("doctype", "") or "",
+        extension=metadata.get("extension", "") or "",
         lang=metadata.get("lang", "") or "",
         source=metadata.get("source", "") or "",
         mdata=metadata,

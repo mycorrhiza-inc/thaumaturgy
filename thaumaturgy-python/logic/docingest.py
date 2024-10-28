@@ -50,7 +50,7 @@ class DocumentIngester:
 
         if metadata.get("lang") == None:
             metadata["lang"] = "en"
-        # file_metadata = self.file_manager.get_metadata_from_file_obj(filepath, metadata.get("doctype"))
+        # file_metadata = self.file_manager.get_metadata_from_file_obj(filepath, metadata.get("extension"))
         self.logger.info("Attempted to get metadata from file, adding to main source.")
         # FIXME :
         # metadata.update(file_metadata)
@@ -107,7 +107,7 @@ class DocumentIngester:
 
         name = url_to_name(url)
         return {
-            "doctype": document_type,
+            "extension": document_type,
             "language": language,
             "date": last_modified,
             "title": name,
@@ -120,13 +120,13 @@ class DocumentIngester:
                 text, metadata = seperate_markdown_string(result)
                 # Make sure that the doc doesnt set the source type to something else
                 # causing a crash when processing docs.
-                metadata["doctype"] = doctype
+                metadata["extension"] = doctype
             return metadata
 
         return {}
 
     def rectify_unknown_metadata(self, metadata: dict):
-        assert metadata.get("doctype") != None
+        assert metadata.get("extension") != None
 
         def mut_rectify_empty_field(metadata: dict, field: str, defaultval: Any):
             if metadata.get(field) == None:
@@ -141,7 +141,7 @@ class DocumentIngester:
 
     def add_file_from_url_nocall(self, url: str) -> tuple[Any, dict]:
         def rectify_unknown_metadata(metadata: dict):
-            assert metadata.get("doctype") != None
+            assert metadata.get("extension") != None
 
             def mut_rectify_empty_field(metadata: dict, field: str, defaultval: Any):
                 if metadata.get(field) == None:
@@ -166,4 +166,4 @@ class DocumentIngester:
         return_doctype = filepath.suffix
         if return_doctype[0] == ".":
             return_doctype = return_doctype[1:]
-        return {"title": filepath.stem, "doctype": filepath.suffix}
+        return {"title": filepath.stem, "extension": filepath.suffix}
