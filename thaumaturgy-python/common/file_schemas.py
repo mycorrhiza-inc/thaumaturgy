@@ -43,18 +43,31 @@ class DocProcStage(BaseModel):
     docproc_stage: DocumentStatus
     is_errored: bool
     is_completed: bool
-    error_msg: Optional[str] = None
-    error_stacktrace: Optional[str] = None
+    error_msg: str = ""
+    error_stacktrace: str = ""
+
+
+NEWDOCSTAGE = DocProcStage(
+    pg_stage=PGStage.PENDING,
+    docproc_stage=DocumentStatus.unprocessed,
+    is_errored=False,
+    is_completed=False,
+)
 
 
 class FileGeneratedExtras(BaseModel):
-    summary: Optional[str] = None
-    short_summary: Optional[str] = None
-    purpose: Optional[str] = None
+    summary: str = ""
+    short_summary: str = ""
+    purpose: str = ""
+
+
+class AuthorInformation(BaseModel):
+    author_id: UUID = UUID("00000000-0000-0000-0000-000000000000")
+    author_name: str
 
 
 class FileMetadataSchema(BaseModel):
-    json_obj: bytes
+    json_obj: bytes = b""
 
 
 class CompleteFileSchema(BaseModel):
@@ -65,9 +78,10 @@ class CompleteFileSchema(BaseModel):
     hash: str
     is_private: bool
     mdata: FileMetadataSchema
-    doc_texts: List[FileTextSchema]
-    stage: DocProcStage
-    extra: FileGeneratedExtras
+    doc_texts: List[FileTextSchema] = []
+    stage: DocProcStage = NEWDOCSTAGE
+    extra: FileGeneratedExtras = FileGeneratedExtras()
+    authors: List[AuthorInformation] = []
 
 
 # I am deeply sorry for not reading the python documentation ahead of time and storing the stage of processed strings instead of ints, hopefully this can atone for my mistakes

@@ -39,20 +39,20 @@ class DocTextInfo(BaseModel):
     is_original_text: bool
 
 
-class GolangUpdateDocumentInfo(BaseModel):
-    id: uuid.UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
-    url: str = ""
-    doctype: str = ""
-    lang: str = ""
-    name: str = ""
-    source: str = ""
-    hash: str = ""
-    mdata: dict[str, Any] = {}
-    stage: str = ""
-    summary: str = ""
-    short_summary: str = ""
-    private: bool = False
-    doc_texts: list[DocTextInfo] = []
+# class GolangUpdateDocumentInfo(BaseModel):
+#     id: uuid.UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
+#     url: str = ""
+#     doctype: str = ""
+#     lang: str = ""
+#     name: str = ""
+#     source: str = ""
+#     hash: str = ""
+#     mdata: dict[str, Any] = {}
+#     stage: str = ""
+#     summary: str = ""
+#     short_summary: str = ""
+#     private: bool = False
+#     doc_texts: list[DocTextInfo] = []
 
 
 class ScraperInfo(BaseModel):
