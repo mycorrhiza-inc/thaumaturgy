@@ -36,7 +36,7 @@ from common.task_schema import (
     Task,
     TaskType,
     create_task,
-    GolangUpdateDocumentInfo,
+    CompleteFileSchema,
 )
 
 
@@ -111,7 +111,7 @@ class DocumentProcesserController(Controller):
 
     @post(path="/process-existing-document")
     async def process_existing_document_handler(
-        self, data: GolangUpdateDocumentInfo, priority: bool
+        self, data: CompleteFileSchema, priority: bool
     ) -> Task:
         task = create_task(
             data, priority, kwargs={}, task_type=TaskType.process_existing_file

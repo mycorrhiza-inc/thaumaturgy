@@ -1,3 +1,5 @@
+import json
+import traceback
 from uuid import UUID
 from pydantic import BaseModel
 
@@ -82,6 +84,21 @@ class CompleteFileSchema(BaseModel):
     stage: DocProcStage = NEWDOCSTAGE
     extra: FileGeneratedExtras = FileGeneratedExtras()
     authors: List[AuthorInformation] = []
+
+
+def mdata_dict_to_object(mdata_dict: dict) -> FileMetadataSchema:
+    try:
+        json_data = json.dumps(mdata_dict)
+        mdata_obj = FileMetadataSchema(json_obj=bytes(json_data, "utf-8"))
+        return mdata_obj
+    except Exception as e:
+        tb = traceback.format_exc()
+        error_string = f"Encountered error converting metadata to json: {e}"
+        traceback_string = f"{tb}"
+        return_dict = {"error": error_string, "traceback": traceback_string}
+        error_json_obj = json.dumps(return_dict)
+        error_mdata_obj = FileMetadataSchema(json_obj=bytes(error_json_obj, "utf-8"))
+        return error_mdata_obj
 
 
 # I am deeply sorry for not reading the python documentation ahead of time and storing the stage of processed strings instead of ints, hopefully this can atone for my mistakes

@@ -8,7 +8,7 @@ from datetime import datetime, date
 from enum import Enum
 
 
-from .file_schemas import FileTextSchema, FileSchemaFull
+from .file_schemas import CompleteFileSchema, FileTextSchema, FileSchemaFull
 
 
 class TaskType(str, Enum):
@@ -81,7 +81,7 @@ def create_task(
     obj: Any, priority: bool, kwargs: dict = {}, task_type: Optional[TaskType] = None
 ) -> Optional[Task]:
     def determine_task_type(obj: Any) -> Optional[TaskType]:
-        if isinstance(obj, GolangUpdateDocumentInfo):
+        if isinstance(obj, CompleteFileSchema):
             return TaskType.process_existing_file
         if isinstance(obj, ScraperInfo):
             return TaskType.add_file_scraper

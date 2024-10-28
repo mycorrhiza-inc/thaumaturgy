@@ -1,8 +1,8 @@
 import uuid
 from typing_extensions import Doc
-from common.file_schemas import CompleteFileSchema, FileTextSchema
+from common.file_schemas import CompleteFileSchema, FileTextSchema, mdata_dict_to_object
 from common.niclib import download_file
-from common.task_schema import Task, GolangUpdateDocumentInfo
+from common.task_schema import Task
 from common.llm_utils import KeLLMUtils
 import os
 from pathlib import Path
@@ -14,7 +14,6 @@ from pydantic import TypeAdapter
 from uuid import UUID
 
 from common.file_schemas import (
-    FileSchema,
     DocumentStatus,
     docstatus_index,
 )
@@ -38,7 +37,6 @@ from util.file_io import S3FileManager
 
 from constants import (
     KESSLER_API_URL,
-    KESSLER_URL,
     OS_TMPDIR,
     OS_HASH_FILEDIR,
     OS_BACKUP_FILEDIR,
@@ -64,8 +62,8 @@ async def does_exist_file_with_hash(hash: str) -> bool:
 
 
 async def upsert_full_file_to_db(
-    obj: GolangUpdateDocumentInfo, insert: bool
-) -> GolangUpdateDocumentInfo:
+    obj: CompleteFileSchema, insert: bool
+) -> CompleteFileSchema:
     if MOCK_DB_CONNECTION:
         return obj
     logger = default_logger
@@ -83,10 +81,11 @@ async def upsert_full_file_to_db(
                 if response_code == 200:
                     try:
                         response_json = await response.json()
-                        # Validate and cast to GolangUpdateDocumentInfo
+                        # Validate and cast to CompleteFileSchema
                         logger.info("File uploaded to db")
                         logger.info(response_json)
-                        golang_update_info = GolangUpdateDocumentInfo(**response_json)
+                        id = UUID(response_json.get("id"))
+                        golang_update_info = CompleteFileSchema.validate(response_json)
                         return golang_update_info
                     except (ValueError, TypeError, KeyError) as e:
                         print(f"Failed to parse JSON: {e}")
@@ -103,7 +102,7 @@ async def add_url_raw(
     file_url: str,
     metadata: dict,
     check_duplicate: bool = False,
-) -> GolangUpdateDocumentInfo:
+) -> CompleteFileSchema:
     download_dir = OS_TMPDIR / Path("downloads")
     result_path = await download_file(file_url, download_dir)
     doctype = metadata.get("extension")
@@ -116,7 +115,7 @@ async def add_file_raw(
     tmp_filepath: Path,
     metadata: dict,
     check_duplicate: bool = False,
-) -> GolangUpdateDocumentInfo:
+) -> CompleteFileSchema:
     logger = default_logger
     docingest = DocumentIngester(logger)
     file_manager = S3FileManager(logger=logger)
@@ -165,12 +164,9 @@ async def add_file_raw(
         name=metadata.get("title", "") or "",
         extension=metadata.get("extension", "") or "",
         lang=metadata.get("lang", "") or "",
-        source=metadata.get("source", "") or "",
-        mdata=metadata,
-        stage=(DocumentStatus.unprocessed).value,
         hash=filehash,
-        summary="",
-        short_summary="",
+        mdata=mdata_dict_to_object(metadata),
+        is_private=False,
     )
     file_from_server = await upsert_full_file_to_db(new_file, insert=True)
     assert file_from_server.id != UUID(
@@ -179,13 +175,13 @@ async def add_file_raw(
     return file_from_server
 
 
-# async def fetch_full_file_from_server(file_id: UUID) -> GolangUpdateDocumentInfo:
+# async def fetch_full_file_from_server(file_id: UUID) -> CompleteFileSchema:
 #     logger = default_logger
 #     logger.info("fetching full file from server")
 #     url = f"/v1/thaumaturgy/full_file/{file_id}"
 #     async with aiohttp.ClientSession() as session:
 #         async with session.get(url) as response:
-#             converted_fileschema = GolangUpdateDocumentInfo(**await response.json())
+#             converted_fileschema = CompleteFileSchema(**await response.json())
 #     return converted_fileschema
 #
 #
@@ -200,7 +196,7 @@ async def add_file_raw(
 
 
 async def process_file_raw(
-    obj: Optional[GolangUpdateDocumentInfo],
+    obj: Optional[CompleteFileSchema],
     stop_at: Optional[DocumentStatus] = None,
     priority: bool = True,
 ):

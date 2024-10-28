@@ -26,7 +26,7 @@ from constants import (
 
 from pydantic import BaseModel
 from common.task_schema import (
-    GolangUpdateDocumentInfo,
+    CompleteFileSchema,
     ScraperInfo,
     Task,
     TaskType,
@@ -120,7 +120,7 @@ async def execute_task(task: Task) -> None:
             task.obj = ScraperInfo.model_validate(task.obj)
             await process_add_file_scraper(task)
         case TaskType.process_existing_file:
-            task.obj = GolangUpdateDocumentInfo.model_validate(task.obj)
+            task.obj = CompleteFileSchema.model_validate(task.obj)
             await process_existing_file(task)
 
     logger.info(f"Finished executing task of type {task.task_type.value}: {task.id}")
@@ -183,7 +183,7 @@ async def process_add_file_scraper(task: Task) -> None:
 
 async def process_existing_file(task: Task) -> None:
     obj = task.obj
-    assert isinstance(obj, GolangUpdateDocumentInfo)
+    assert isinstance(obj, CompleteFileSchema)
     logger = default_logger
     try:
         result_file = await process_file_raw(
