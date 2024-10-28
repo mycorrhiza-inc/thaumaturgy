@@ -3,7 +3,7 @@ from common.niclib import rand_string, rand_filepath
 # Note: Refactoring imports.py
 
 
-from typing import Optional, Tuple
+from typing import Optional
 
 
 # from langchain.vectorstores import FAISS

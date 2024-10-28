@@ -6,7 +6,6 @@
 # REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE = "docproc_background_daemon"
 # REDIS_DOCPROC_BACKGROUND_PROCESSING_STOPS_AT = "docproc_background_stop_at"
 # REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS = "docproc_currently_processing_docs"
-from datetime import date
 from pymilvus.client import re
 from constants import (
     REDIS_DOCPROC_QUEUE_KEY,
@@ -15,8 +14,7 @@ from constants import (
     REDIS_PORT,
     REDIS_DOCPROC_PRIORITYQUEUE_KEY,
 )
-from common.file_schemas import FileSchema, DocumentStatus, docstatus_index
-from typing import List, Any, Union, Optional, Dict
+from typing import Any, Optional
 import redis
 import logging
 from uuid import UUID

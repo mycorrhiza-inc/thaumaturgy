@@ -4,7 +4,7 @@
 from pydantic import BaseModel
 import uuid
 from typing import Optional, Any
-from datetime import datetime, date
+from datetime import datetime
 from enum import Enum
 
 

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from pydantic import Field, field_validator, TypeAdapter
 
-from typing import Annotated, Any, List, Dict, Optional
+from typing import List
 
 
 from enum import Enum

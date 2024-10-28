@@ -24,7 +24,6 @@ from background_loops import clear_file_queue
 
 import redis
 import uuid
-from datetime import date, datetime
 
 from util.redis_utils import task_get, task_push_to_queue
 
