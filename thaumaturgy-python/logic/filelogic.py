@@ -37,6 +37,7 @@ from util.file_io import S3FileManager
 # import base64
 
 from constants import (
+    KESSLER_API_URL,
     KESSLER_URL,
     OS_TMPDIR,
     OS_HASH_FILEDIR,
@@ -55,12 +56,11 @@ default_logger = logging.getLogger(__name__)
 
 async def does_exist_file_with_hash(hash: str) -> bool:
     raise Exception("Deduplication not implemented on server")
-    url = f"{KESSLER_URL}/file/get-by-hash/{hash}"
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            response_dict = await response.json()
-    return bool(response_dict.get("exists"))
+    # async with aiohttp.ClientSession() as session:
+    #     async with session.get(url) as response:
+    #         response_dict = await response.json()
+    # return bool(response_dict.get("exists"))
 
 
 async def upsert_full_file_to_db(
@@ -180,24 +180,24 @@ async def add_file_raw(
     return file_from_server
 
 
-async def fetch_full_file_from_server(file_id: UUID) -> GolangUpdateDocumentInfo:
-    logger = default_logger
-    logger.info("fetching full file from server")
-    url = f"{KESSLER_URL}/api/v1/thaumaturgy/full_file/{file_id}"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            converted_fileschema = GolangUpdateDocumentInfo(**await response.json())
-    return converted_fileschema
-
-
-async def process_fileid_raw(
-    file_id_str: str,
-    stop_at: Optional[DocumentStatus] = None,
-    priority: bool = True,
-):
-    file_uuid = UUID(file_id_str)
-    full_obj = await fetch_full_file_from_server(file_uuid)
-    return await process_file_raw(full_obj, stop_at=stop_at, priority=priority)
+# async def fetch_full_file_from_server(file_id: UUID) -> GolangUpdateDocumentInfo:
+#     logger = default_logger
+#     logger.info("fetching full file from server")
+#     url = f"/v1/thaumaturgy/full_file/{file_id}"
+#     async with aiohttp.ClientSession() as session:
+#         async with session.get(url) as response:
+#             converted_fileschema = GolangUpdateDocumentInfo(**await response.json())
+#     return converted_fileschema
+#
+#
+# async def process_fileid_raw(
+#     file_id_str: str,
+#     stop_at: Optional[DocumentStatus] = None,
+#     priority: bool = True,
+# ):
+#     file_uuid = UUID(file_id_str)
+#     full_obj = await fetch_full_file_from_server(file_uuid)
+#     return await process_file_raw(full_obj, stop_at=stop_at, priority=priority)
 
 
 async def process_file_raw(
@@ -300,23 +300,24 @@ async def process_file_raw(
     # TODO: Replace with pydantic validation
 
     async def process_embeddings():
-        logger.info("Adding Embeddings")
-        url = KESSLER_URL + "/api/v1/thaumaturgy/insert_file_embeddings"
-        json_data = {
-            "hash": obj.hash,
-            "id": str(obj.id),
-            "metadata": json.dumps(obj.mdata),
-        }
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=json_data) as response:
-                response_code = response.status
-                response_data = await response.json()
-                # await the json if async
-
-                if response_data is None:
-                    raise Exception("Response is bad")
-                if response_code < 200 or response_code >= 300:
-                    raise Exception(f"Bad response code: {response_code}")
+        # TODO : Automate processing of embeddings
+        # logger.info("Adding Embeddings")
+        # url = KESSLER_URL + "/api/v1/thaumaturgy/insert_file_embeddings"
+        # json_data = {
+        #     "hash": obj.hash,
+        #     "id": str(obj.id),
+        #     "metadata": json.dumps(obj.mdata),
+        # }
+        # async with aiohttp.ClientSession() as session:
+        #     async with session.post(url, json=json_data) as response:
+        #         response_code = response.status
+        #         response_data = await response.json()
+        #         # await the json if async
+        #
+        #         if response_data is None:
+        #             raise Exception("Response is bad")
+        #         if response_code < 200 or response_code >= 300:
+        #             raise Exception(f"Bad response code: {response_code}")
 
         return DocumentStatus.embeddings_completed
 

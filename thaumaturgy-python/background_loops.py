@@ -4,10 +4,8 @@ from common.file_schemas import DocumentStatus
 
 import logging
 from logic.filelogic import (
-    add_file_raw,
     add_url_raw,
     process_file_raw,
-    process_fileid_raw,
 )
 import asyncio
 import redis

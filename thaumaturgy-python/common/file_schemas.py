@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from pydantic import Field, field_validator, TypeAdapter
 
-from typing import Annotated, Any, List, Dict
+from typing import Annotated, Any, List, Dict, Optional
 
 
 from enum import Enum
@@ -18,46 +18,11 @@ class FileTextSchema(BaseModel):
     text: str
 
 
-class FileSchema(BaseModel):
-    """pydantic schema of the FileModel"""
-
-    id: Annotated[Any, Field(validate_default=True)]
-    url: str | None = None
-    hash: str | None = None
-    doctype: str | None = None
-    lang: str | None = None
-    name: str | None = None
-    source: str | None = None
-    stage: str | None = None
-    short_summary: str | None = None
-    summary: str | None = None
-    organization_id: UUID | None = None
-    mdata: Dict[str, Any] = {}
-    display_text: str | None = None
-
-    # Good idea to do this for dict based mdata, instead wrote a custom function for it
-    @field_validator("id")
-    @classmethod
-    def stringify_id(cls, id: any) -> str:
-        return str(id)
-
-
-class FileSchemaFull(BaseModel):
-    id: UUID
-    url: str | None = None
-    hash: str | None = None
-    doctype: str | None = None
-    lang: str | None = None
-    name: str | None = None
-    source: str | None = None
-    stage: str | None = None
-    short_summary: str | None = None
-    summary: str | None = None
-    organization_id: UUID | None = None
-    mdata: Dict[str, Any] = {}
-    texts: List[FileTextSchema] = []
-    authors: List[IndividualSchema] = []
-    organization: OrganizationSchema | None = None
+class PGStage(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    ERRORED = "errored"
 
 
 class DocumentStatus(str, Enum):
@@ -71,6 +36,38 @@ class DocumentStatus(str, Enum):
     stage3 = "stage3"
     stage2 = "stage2"
     stage1 = "stage1"
+
+
+class DocProcStage(BaseModel):
+    pg_stage: PGStage
+    docproc_stage: DocumentStatus
+    is_errored: bool
+    is_completed: bool
+    error_msg: Optional[str] = None
+    error_stacktrace: Optional[str] = None
+
+
+class FileGeneratedExtras(BaseModel):
+    summary: Optional[str] = None
+    short_summary: Optional[str] = None
+    purpose: Optional[str] = None
+
+
+class FileMetadataSchema(BaseModel):
+    json_obj: bytes
+
+
+class CompleteFileSchema(BaseModel):
+    id: UUID
+    extension: str
+    lang: str
+    name: str
+    hash: str
+    is_private: bool
+    mdata: FileMetadataSchema
+    doc_texts: List[FileTextSchema]
+    stage: DocProcStage
+    extra: FileGeneratedExtras
 
 
 # I am deeply sorry for not reading the python documentation ahead of time and storing the stage of processed strings instead of ints, hopefully this can atone for my mistakes
