@@ -105,7 +105,7 @@ async def process_add_file_scraper(task: Task) -> None:
     file_url = scraper_obj.file_url
     metadata = {
         "url": scraper_obj.file_url,
-        "doctype": filetype,
+        "extension": filetype,
         "lang": "",
         "title": scraper_obj.name,
         "source": scraper_obj.internal_source_name,

@@ -28,8 +28,6 @@ from datetime import date, datetime
 
 from util.redis_utils import task_get, task_push_to_queue
 
-redis_client = redis.Redis(REDIS_HOST, port=REDIS_PORT)
-
 
 from common.task_schema import (
     ScraperInfo,
@@ -39,6 +37,8 @@ from common.task_schema import (
     CompleteFileSchema,
 )
 
+redis_client = redis.Redis(REDIS_HOST, port=REDIS_PORT)
+
 
 class DaemonState(BaseModel):
     enable_background_processing: Optional[bool] = None
@@ -46,14 +46,6 @@ class DaemonState(BaseModel):
     clear_queue: Optional[bool] = None
 
 
-# "serial": "1",
-# "date_filed": "07/26/2024",
-# "nypuc_doctype": "Correspondence",
-# "name": "2024 O&R Public IIJA and IRA Letter",
-# "url": "https://documents.dps.ny.gov/public/Common/ViewDoc.aspx?DocRefId={00D00391-0000-C244-8290-B1BAC95E7488}",
-# "organization": "Orange and Rockland Utilities, Inc.",
-# "itemNo": "51",
-# "file_name": "2024 O&R Public IIJA and IRA letter (1).pdf"
 class NyPUCScraperSchema(BaseModel):
     serial: Optional[str]
     date_filed: Optional[str]
@@ -63,18 +55,6 @@ class NyPUCScraperSchema(BaseModel):
     organization: Optional[str]
     itemNo: Optional[str]
     file_name: Optional[str]
-
-
-# class ScraperInfo(BaseModel):
-#     file_url: str  # throw a get request at this url to get the file
-#     name: str = ""
-#     published_date: str = ""
-#     internal_source_name: str = ""
-#     docket_id: str = ""
-#     author_organisation: str = ""
-#     file_class: str = ""  # Decision, Public Comment, etc
-#     file_type: str = ""  # PDF, DOCX, etc
-#     lang: str = ""  # defaults to "en" unless otherwise specified
 
 
 def convert_ny_to_scraper_info(nypuc_scraper: NyPUCScraperSchema) -> ScraperInfo:
