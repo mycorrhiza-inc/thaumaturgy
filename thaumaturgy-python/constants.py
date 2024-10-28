@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 
-MOCK_DB_CONNECTION = True
+MOCK_DB_CONNECTION = False
 
 KESSLER_API_URL = "https://api.kessler.xyz"
 
