@@ -12,8 +12,6 @@ from util.logging import logging_config
 
 from routing.docproc_controller import DocumentProcesserController
 
-from routing.encounter_controller import EncounterController
-
 
 from background_loops import initialize_background_loops
 
@@ -43,7 +41,7 @@ cors_config = CORSConfig(allow_origins=["*"])
 
 api_router = Router(
     path="/v1/",
-    route_handlers=[DocumentProcesserController, EncounterController],
+    route_handlers=[DocumentProcesserController],
 )
 
 app = Litestar(
