@@ -36,37 +36,6 @@ from common.task_schema import (
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 default_logger = logging.getLogger(__name__)
 
-# I dont think this does anything waiting to remove it.
-# async def background_processing_loop() -> None:
-#     await asyncio.sleep(
-#         30
-#     )  # Wait 30 seconds until application has finished loading to start processing background docs
-#     default_logger.info(
-#         "Starting the daemon that adds more background documents to process."
-#     )
-#
-#     redis_client.set(REDIS_BACKGROUND_DAEMON_TOGGLE, 0)
-#
-#     async def activity():
-#         if redis_client.get(REDIS_BACKGROUND_DAEMON_TOGGLE) == 0:
-#             await asyncio.sleep(300)
-#             return None
-#         else:
-#             await asyncio.sleep(300)
-#
-#     # Logic to force it to process each loop sequentially
-#     result = None
-#     while result is None:
-#         try:
-#             result = await activity()
-#         except Exception as e:
-#             tb = traceback.format_exc()
-#             default_logger.error("Encountered error while processing a document")
-#             default_logger.error(e)
-#             default_logger.error(tb)
-#             await asyncio.sleep(2)
-#             result = None
-
 
 async def main_processing_loop() -> None:
     await asyncio.sleep(

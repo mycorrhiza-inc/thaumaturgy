@@ -14,7 +14,11 @@ import os
 
 from pathlib import Path
 
-from util.gpu_compute_calls import GPUComputeEndpoint
+from util.gpu_compute_calls import (
+    GPUComputeEndpoint,
+    audio_to_text_api,
+    translate_text_api,
+)
 
 from util.file_io import S3FileManager
 
@@ -32,19 +36,15 @@ class MarkdownExtractor:
         self.s3_client = S3FileManager(logger=self.logger)
         # TODO : Add database connection.
 
-    def convert_text_into_eng(self, file_text: str, lang: str):
+    async def convert_text_into_eng(self, file_text: str, lang: str):
         if lang in ["en", "eng", "english", None]:
             return file_text
-        english_text = GPUComputeEndpoint(self.logger).translate_text(
-            file_text, lang, "en"
-        )
+        english_text = await translate_text_api(file_text, lang, "en")
         return english_text
 
     async def process_raw_document_into_untranslated_text_from_hash(
-        self, hash: str, metadata: dict, override_dir: Optional[Path] = None
-    ) -> Tuple[str, dict]:
-        doctype = metadata["extension"]
-        lang = metadata["lang"]
+        self, hash: str, extension: str, lang: str, override_dir: Optional[Path] = None
+    ) -> str:
 
         async def process_pdf(s3_uri: str) -> str:
             self.logger.info("processing pdf")
@@ -67,36 +67,26 @@ class MarkdownExtractor:
                 raise Exception(f"Error running pandoc command: {error_str}")
             return output_str
 
-        if override_dir is not None:
-            hash = metadata["hash"]
-            checkpath = override_dir / Path(f"{hash}/{hash}.md")
-            # checkpath = override_dir / Path(hash + ".md")
-            if os.path.exists(checkpath):
-                with open(checkpath, "r") as file:
-                    data = file.read().rstrip()
-                    text, new_metadata = seperate_markdown_string(data)
-                    metadata.update(new_metadata)
-                    return (text, metadata)
-        if doctype == "pdf":
+        if extension == "pdf":
             s3_uri = self.s3_client.generate_s3_uri_from_hash(hash)
             if s3_uri is None:
                 raise Exception("File Not Found")
-            return (await process_pdf(s3_uri), metadata)
+            return await process_pdf(s3_uri)
         file_loc = self.s3_client.generate_local_filepath_from_hash(hash)
         if file_loc is None:
             raise Exception("File Not Found")
 
         if not os.path.isfile(file_loc):
             raise Exception("A document with that hash is not present")
-        if doctype == "md":
+        if extension == "md":
             with open(file_loc, "r") as file:
                 data = file.read().rstrip()
                 text, new_metadata = seperate_markdown_string(data)
                 # Redundant due to it processing metadata upon ingest.
                 # metadata.update(new_metadata)
-                return (text, metadata)
+                return text
 
-        if doctype in [
+        if extension in [
             "html",
             "doc",
             "docx",
@@ -105,12 +95,13 @@ class MarkdownExtractor:
             "odt",
             "rtf",
         ]:
-            return (process_pandoc(file_loc, doctype), metadata)
-        if doctype == "tex":
-            return (process_pandoc(file_loc, "latex"), metadata)
-        if doctype in ["mp3", "opus", "mkv"]:
-            raise GPUComputeEndpoint().audio_to_text(file_loc)
+            return process_pandoc(file_loc, extension)
+        if extension == "tex":
+            return process_pandoc(file_loc, "latex")
+        if extension in ["mp3", "opus", "mkv"]:
+            return_text = await audio_to_text_api(file_loc, lang)
+            return return_text
         else:
             raise ValueError(
-                f'Improper File Type, processing Failed with doctype: "{doctype}"'
+                f'Improper File Type, processing Failed with file extension: "{extension}"'
             )

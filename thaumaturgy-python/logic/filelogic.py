@@ -1,6 +1,14 @@
+import traceback
 import uuid
 from typing_extensions import Doc
-from common.file_schemas import CompleteFileSchema, FileTextSchema, mdata_dict_to_object
+from common.file_schemas import (
+    AuthorInformation,
+    CompleteFileSchema,
+    DocProcStage,
+    FileTextSchema,
+    PGStage,
+    mdata_dict_to_object,
+)
 from common.niclib import download_file
 from common.task_schema import Task
 from common.llm_utils import KeLLMUtils
@@ -18,10 +26,9 @@ from common.file_schemas import (
     docstatus_index,
 )
 
-from logic.docingest import DocumentIngester
 from logic.extractmarkdown import MarkdownExtractor
 
-from typing import Optional
+from typing import List, Optional
 
 
 # from routing.file_controller import QueryData
@@ -125,8 +132,19 @@ async def add_file_raw(
     check_duplicate: bool = False,
 ) -> CompleteFileSchema:
     logger = default_logger
-    docingest = DocumentIngester(logger)
     file_manager = S3FileManager(logger=logger)
+
+    def split_author_field_into_authordata(author_str: str) -> List[AuthorInformation]:
+        # Use LLMs to split out the code for stuff relating to the thing.
+        author_list = [author.strip() for author in author_str.split(",")]
+        author_info_list = [
+            AuthorInformation(
+                author_id=UUID("00000000-0000-0000-0000-000000000000"),
+                author_name=author,
+            )
+            for author in author_list
+        ]
+        return author_info_list
 
     def validate_metadata_mutable(metadata: dict):
         if metadata.get("lang") is None or metadata.get("lang") == "":
@@ -183,26 +201,6 @@ async def add_file_raw(
     return file_from_server
 
 
-# async def fetch_full_file_from_server(file_id: UUID) -> CompleteFileSchema:
-#     logger = default_logger
-#     logger.info("fetching full file from server")
-#     url = f"/v1/thaumaturgy/full_file/{file_id}"
-#     async with aiohttp.ClientSession() as session:
-#         async with session.get(url) as response:
-#             converted_fileschema = CompleteFileSchema(**await response.json())
-#     return converted_fileschema
-#
-#
-# async def process_fileid_raw(
-#     file_id_str: str,
-#     stop_at: Optional[DocumentStatus] = None,
-#     priority: bool = True,
-# ):
-#     file_uuid = UUID(file_id_str)
-#     full_obj = await fetch_full_file_from_server(file_uuid)
-#     return await process_file_raw(full_obj, stop_at=stop_at, priority=priority)
-
-
 async def process_file_raw(
     obj: Optional[CompleteFileSchema],
     stop_at: Optional[DocumentStatus] = None,
@@ -224,7 +222,6 @@ async def process_file_raw(
     logger.info(obj)
     current_stage = DocumentStatus(obj.stage)
     llm = KeLLMUtils("llama-70b")  # M6yabe replace with something cheeper.
-    logger.info(obj.doctype)
     mdextract = MarkdownExtractor(logger, OS_TMPDIR, priority=priority)
     file_manager = S3FileManager(logger=logger)
     text = {}
@@ -243,16 +240,12 @@ async def process_file_raw(
         logger.info("Sending async request to pdf file.")
         processed_original_text = (
             await mdextract.process_raw_document_into_untranslated_text_from_hash(
-                hash, doc_metadata
+                hash=hash, lang=obj.lang, extension=obj.extension
             )
         )[0]
         logger.info(
             f"Successfully processed original text: {
                 processed_original_text[0:20]}"
-        )
-        # FIXME: We should probably come up with a better backup protocol then doing everything with hashes
-        file_manager.backup_processed_text(
-            processed_original_text, hash, doc_metadata, OS_BACKUP_FILEDIR
         )
         assert isinstance(processed_original_text, str)
         logger.info("Backed up markdown text")
@@ -278,7 +271,7 @@ async def process_file_raw(
     async def process_stage_two():
         if obj.lang != "en":
             try:
-                text["english_text"] = mdextract.convert_text_into_eng(
+                text["english_text"] = await mdextract.convert_text_into_eng(
                     text["original_text"], obj.lang
                 )
                 text_list.append(
@@ -326,14 +319,14 @@ async def process_file_raw(
 
     async def create_summary():
         long_summary = await llm.summarize_mapreduce(text["english_text"])
-        obj.summary = long_summary
+        obj.extra.summary = long_summary
         short_sum_instruct = (
             "Take this long summary and condense it into a 1-2 sentance short summary."
         )
         short_summary = await llm.simple_instruct(
             content=long_summary, instruct=short_sum_instruct
         )
-        obj.short_summary = short_summary
+        obj.extra.short_summary = short_summary
 
         return DocumentStatus.summarization_completed
 
@@ -342,7 +335,14 @@ async def process_file_raw(
     while True:
         if docstatus_index(current_stage) >= docstatus_index(stop_at):
             logger.info(current_stage.value)
-            obj.stage = current_stage.value
+            obj.stage = DocProcStage(
+                pg_stage=PGStage.COMPLETED,
+                error_msg="",
+                error_stacktrace="",
+                docproc_stage=current_stage,
+                is_errored=True,
+                is_completed=True,
+            )
             await upsert_full_file_to_db(obj, insert=False)
             return obj
         try:
@@ -365,9 +365,17 @@ async def process_file_raw(
                     "
                     )
         except Exception as e:
+            tb = traceback.format_exc()
             logger.error(
                 f"Document errored out while processing stage: {current_stage.value}"
             )
-            obj.stage = current_stage.value
+            obj.stage = DocProcStage(
+                pg_stage=PGStage.ERRORED,
+                error_msg=str(e),
+                error_stacktrace=str(tb),
+                docproc_stage=current_stage,
+                is_errored=True,
+                is_completed=True,
+            )
             await upsert_full_file_to_db(obj, insert=False)
             raise e
