@@ -8,7 +8,7 @@ from datetime import datetime, date
 from enum import Enum
 
 
-from .file_schemas import CompleteFileSchema, FileTextSchema, FileSchemaFull
+from .file_schemas import CompleteFileSchema
 
 
 class TaskType(str, Enum):
@@ -25,7 +25,7 @@ class Task(BaseModel):
     kwargs: dict = {}
     created_at: datetime = datetime.now()
     updated_at: datetime = datetime.now()
-    error: str | None = None
+    error: str = ""
     completed: bool = False
     success: bool = False
     followup_task_id: Optional[uuid.UUID] = None
@@ -37,22 +37,6 @@ class DocTextInfo(BaseModel):
     language: str
     text: str
     is_original_text: bool
-
-
-# class GolangUpdateDocumentInfo(BaseModel):
-#     id: uuid.UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
-#     url: str = ""
-#     doctype: str = ""
-#     lang: str = ""
-#     name: str = ""
-#     source: str = ""
-#     hash: str = ""
-#     mdata: dict[str, Any] = {}
-#     stage: str = ""
-#     summary: str = ""
-#     short_summary: str = ""
-#     private: bool = False
-#     doc_texts: list[DocTextInfo] = []
 
 
 class ScraperInfo(BaseModel):

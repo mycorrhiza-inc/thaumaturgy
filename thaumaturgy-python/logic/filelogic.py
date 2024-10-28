@@ -84,12 +84,20 @@ async def upsert_full_file_to_db(
                         # Validate and cast to CompleteFileSchema
                         logger.info("File uploaded to db")
                         logger.info(response_json)
-                        id = UUID(response_json.get("id"))
-                        golang_update_info = CompleteFileSchema.validate(response_json)
-                        return golang_update_info
                     except (ValueError, TypeError, KeyError) as e:
                         print(f"Failed to parse JSON: {e}")
                         raise Exception(f"Failed to parse JSON: {e}")
+                    id_str = response_json.get("id")
+                    if id_str is None:
+                        print(f"No id returned from the server")
+                        raise Exception(f"No id returned from the server")
+                    try:
+                        id = UUID(id_str)
+                    except Exception as e:
+                        print(f"Failed to parse UUID: {e}")
+                        raise Exception(f"Failed to parse UUID: {e}")
+                    obj.id = id
+                    return obj
                 logger.info(f"Response code: {response_code}")
                 logger.info(f"Response body: {await response.text()}")
         await asyncio.sleep(10)
