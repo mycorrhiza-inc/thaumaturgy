@@ -80,7 +80,7 @@ async def upsert_full_file_to_db(
     else:
         id = str(obj.id)
         url = f"https://api.kessler.xyz/v2/public/files/{id}"
-    json_data = json.loads(obj.model_dump_json())
+    json_data = obj.model_dump_json()
     for _ in range(5):
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=json_data) as response:
