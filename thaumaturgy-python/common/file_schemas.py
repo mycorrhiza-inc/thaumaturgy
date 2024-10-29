@@ -14,7 +14,6 @@ from common.org_schemas import OrganizationSchema, IndividualSchema
 
 
 class FileTextSchema(BaseModel):
-    file_id: UUID
     is_original_text: bool
     language: str
     text: str

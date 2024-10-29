@@ -74,9 +74,7 @@ async def upsert_full_file_to_db(
 ) -> CompleteFileSchema:
     if MOCK_DB_CONNECTION:
         return obj
-    obj.mdata = FileMetadataSchema(json_obj=b"")
     logger = default_logger
-    # FIXME: Absolutely no clue why the ny is necessary, fix routing in traefik
     if insert:
         url = f"https://api.kessler.xyz/v2/public/files/insert"
     else:
@@ -84,7 +82,7 @@ async def upsert_full_file_to_db(
         url = f"https://api.kessler.xyz/v2/public/files/{id}"
     json_data_string = obj.model_dump_json()
     logger.info(json_data_string)
-    for _ in range(5):
+    for _ in range(3):
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=json_data_string) as response:
                 response_code = response.status
@@ -223,7 +221,7 @@ async def process_file_raw(
     source_id = obj.id
     logger.info(type(obj))
     logger.info(obj)
-    current_stage = DocumentStatus(obj.stage)
+    current_stage = DocumentStatus(obj.stage.docproc_stage)
     llm = KeLLMUtils("llama-70b")  # M6yabe replace with something cheeper.
     mdextract = MarkdownExtractor(logger, OS_TMPDIR, priority=priority)
     file_manager = S3FileManager(logger=logger)
@@ -254,7 +252,6 @@ async def process_file_raw(
         logger.info("Backed up markdown text")
         text_list.append(
             FileTextSchema(
-                file_id=source_id,
                 is_original_text=True,
                 language=obj.lang,
                 text=processed_original_text,
@@ -279,7 +276,6 @@ async def process_file_raw(
                 )
                 text_list.append(
                     FileTextSchema(
-                        file_id=source_id,
                         is_original_text=False,
                         language="en",
                         text=text["english_text"],
