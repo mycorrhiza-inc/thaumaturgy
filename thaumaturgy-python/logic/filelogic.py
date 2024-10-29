@@ -18,7 +18,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, model_validator
 
 from uuid import UUID
 
@@ -72,6 +72,7 @@ async def does_exist_file_with_hash(hash: str) -> bool:
 async def upsert_full_file_to_db(
     obj: CompleteFileSchema, insert: bool
 ) -> CompleteFileSchema:
+    obj = CompleteFileSchema.model_validate(obj, strict=True)
     if MOCK_DB_CONNECTION:
         return obj
     logger = default_logger
@@ -196,6 +197,7 @@ async def add_file_raw(
         is_private=False,
     )
     file_from_server = await upsert_full_file_to_db(new_file, insert=True)
+    assert isinstance(file_from_server.id, UUID)
     assert file_from_server.id != UUID(
         "00000000-0000-0000-0000-000000000000"
     ), "File has a null UUID"
@@ -203,13 +205,12 @@ async def add_file_raw(
 
 
 async def process_file_raw(
-    obj: Optional[CompleteFileSchema],
+    obj: CompleteFileSchema,
     stop_at: Optional[DocumentStatus] = None,
     priority: bool = True,
 ):
+    obj = CompleteFileSchema.model_validate(obj, strict=True)
     logger = default_logger
-    if obj is None:
-        raise Exception("You done fucked up, you forgot to pass in a file")
     hash = obj.hash
     if hash is None:
         raise Exception("You done fucked up, you forgot to pass in a hash")
