@@ -260,10 +260,10 @@ async def process_file_raw(
             await mdextract.process_raw_document_into_untranslated_text_from_hash(
                 hash=hash, lang=obj.lang, extension=obj.extension
             )
-        )[0]
+        )
         logger.info(
             f"Successfully processed original text: {
-                processed_original_text[0:20]}"
+                processed_original_text[0:50]}"
         )
         assert isinstance(processed_original_text, str)
         assert processed_original_text != "", "Got Back Empty Processed Text"
