@@ -387,9 +387,8 @@ async def process_file_raw(
                     )
         except Exception as e:
             tb = traceback.format_exc()
-            logger.error(
-                f"Document errored out while processing stage: {current_stage.value}"
-            )
+            logger.error(f"Document errored out during {current_stage.value} : {e}")
+            logger.error(tb)
             obj.stage = DocProcStage(
                 pg_stage=PGStage.ERRORED,
                 error_msg=str(e),
