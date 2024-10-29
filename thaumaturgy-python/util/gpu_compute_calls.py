@@ -117,6 +117,7 @@ class GPUComputeEndpoint:
     async def transcribe_pdf_s3_uri(
         self, s3_uri: str, external_process: bool = False, priority: bool = True
     ) -> str:
+        logger = default_logger
         if external_process:
             # TODO : Make it so that it downloads the s3_uri onto local then uploads it to external process.
             raise Exception("s3 uploads not supported with external processimg.")
@@ -131,6 +132,7 @@ class GPUComputeEndpoint:
             )
 
             data = {"s3_url": s3_uri}
+            logger.info(data)
             # data = {"langs": "en", "force_ocr": "false", "paginate": "true"}
             async with aiohttp.ClientSession() as session:
                 async with session.post(marker_url_endpoint, json=data) as response:
