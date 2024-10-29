@@ -226,7 +226,6 @@ async def process_file_raw(
     priority: bool = True,
 ) -> Tuple[Optional[str], CompleteFileSchema]:
     obj = CompleteFileSchema.model_validate(obj, strict=True)
-    assert obj.id != UUID("00000000-0000-0000-0000-000000000000")
     logger = default_logger
     hash = obj.hash
     if hash is None:
