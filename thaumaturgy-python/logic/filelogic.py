@@ -79,8 +79,9 @@ async def upsert_full_file_to_db(
     if insert:
         url = f"https://api.kessler.xyz/v2/public/files/insert"
     else:
-        id = str(obj.id)
-        url = f"https://api.kessler.xyz/v2/public/files/{id}"
+        assert isinstance(obj.id, UUID)
+        id_str = str(obj.id)
+        url = f"https://api.kessler.xyz/v2/public/files/{id_str}"
     json_data_string = obj.model_dump_json()
     logger.info(json_data_string)
     for _ in range(3):
@@ -105,6 +106,10 @@ async def upsert_full_file_to_db(
                     except Exception as e:
                         print(f"Failed to parse UUID: {e}")
                         raise Exception(f"Failed to parse UUID: {e}")
+
+                    assert id != UUID(
+                        "00000000-0000-0000-0000-000000000000"
+                    ), "Got Back null uuid from server."
                     obj.id = id
                     return obj
                 logger.info(f"Response code: {response_code}")
@@ -210,6 +215,7 @@ async def process_file_raw(
     priority: bool = True,
 ):
     obj = CompleteFileSchema.model_validate(obj, strict=True)
+    assert obj.id != UUID("00000000-0000-0000-0000-000000000000")
     logger = default_logger
     hash = obj.hash
     if hash is None:
@@ -250,6 +256,7 @@ async def process_file_raw(
                 processed_original_text[0:20]}"
         )
         assert isinstance(processed_original_text, str)
+        assert processed_original_text != "", "Got Back Empty Processed Text"
         logger.info("Backed up markdown text")
         text_list.append(
             FileTextSchema(
@@ -318,6 +325,7 @@ async def process_file_raw(
         return DocumentStatus.embeddings_completed
 
     async def create_summary():
+        assert text["english_text"]
         long_summary = await llm.summarize_mapreduce(text["english_text"])
         obj.extra.summary = long_summary
         short_sum_instruct = (

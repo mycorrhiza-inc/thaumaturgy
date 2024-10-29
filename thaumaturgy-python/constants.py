@@ -1,8 +1,10 @@
 import os
 from pathlib import Path
-
+import uuid
 
 MOCK_DB_CONNECTION = False
+
+NULL_UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 
 KESSLER_API_URL = "https://api.kessler.xyz"
 
