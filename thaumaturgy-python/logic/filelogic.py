@@ -1,3 +1,4 @@
+from copy import copy
 import traceback
 import uuid
 from typing_extensions import Doc
@@ -76,10 +77,14 @@ async def upsert_full_file_to_db(
     if MOCK_DB_CONNECTION:
         return obj
     logger = default_logger
+    original_id = copy(obj.id)
     if insert:
         url = f"https://api.kessler.xyz/v2/public/files/insert"
     else:
         assert isinstance(obj.id, UUID)
+        assert obj.id != UUID(
+            "00000000-0000-0000-0000-000000000000"
+        ), "Cannot update a file with a null uuid"
         id_str = str(obj.id)
         url = f"https://api.kessler.xyz/v2/public/files/{id_str}"
         logger.info(f"Hitting file update endpoint: {url}")
@@ -111,6 +116,10 @@ async def upsert_full_file_to_db(
                     assert id != UUID(
                         "00000000-0000-0000-0000-000000000000"
                     ), "Got Back null uuid from server."
+                    if insert:
+                        assert (
+                            id != original_id
+                        ), "Identical ID returned from the server, this should be impossible if you are inserting a file."
                     obj.id = id
                     return obj
                 logger.info(f"Response code: {response_code}")
@@ -194,7 +203,7 @@ async def add_file_raw(
     # FIXME: RENEABLE BACKUPS AT SOME POINT
     # file_manager.backup_metadata_to_hash(metadata, filehash)
     new_file = CompleteFileSchema(
-        id=uuid.uuid4(),
+        id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
         name=metadata.get("title", "") or "",
         extension=metadata.get("extension", "") or "",
         lang=metadata.get("lang", "") or "",
