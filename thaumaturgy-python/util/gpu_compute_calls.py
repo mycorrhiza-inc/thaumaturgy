@@ -98,7 +98,12 @@ class GPUComputeEndpoint:
                     poll_data = await poll_response.json()
                     # self.logger.info(poll_data)
                     if poll_data["status"] == "complete":
-                        self.logger.info(f"Processed document after {polls} polls.")
+                        text = poll_data["markdown"]
+                        if text == "":
+                            raise Exception("Got Empty String from Markdown Server.")
+                        self.logger.info(
+                            f"Processed document after {polls} polls with text: {text[0:50]}\n"
+                        )
                         return poll_data["markdown"]
                     if poll_data["status"] == "error":
                         e = poll_data["error"]
