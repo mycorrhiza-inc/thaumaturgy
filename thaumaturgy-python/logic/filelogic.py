@@ -119,7 +119,7 @@ async def upsert_full_file_to_db(
                     assert id != UUID(
                         "00000000-0000-0000-0000-000000000000"
                     ), "Got Back null uuid from server."
-                    if insert:
+                    if interact == DatabaseInteraction.insert:
                         assert (
                             id != original_id
                         ), "Identical ID returned from the server, this should be impossible if you are inserting a file."
