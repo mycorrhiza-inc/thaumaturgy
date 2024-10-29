@@ -1,3 +1,4 @@
+from typing_extensions import List
 from pydantic import BaseModel
 from typing import Optional
 
@@ -47,6 +48,7 @@ class DaemonState(BaseModel):
 
 
 class NyPUCScraperSchema(BaseModel):
+    docket_id: Optional[str] = None
     serial: Optional[str]
     date_filed: Optional[str]
     nypuc_doctype: Optional[str]
@@ -63,7 +65,7 @@ def convert_ny_to_scraper_info(nypuc_scraper: NyPUCScraperSchema) -> ScraperInfo
         name=nypuc_scraper.name or "",
         published_date=nypuc_scraper.date_filed or "",
         internal_source_name=nypuc_scraper.organization or "",
-        docket_id=nypuc_scraper.serial or "",
+        docket_id=nypuc_scraper.docket_id or "",
         author_organisation=nypuc_scraper.organization or "",
         file_class=nypuc_scraper.nypuc_doctype or "",
         file_type=(
@@ -142,3 +144,27 @@ class DocumentProcesserController(Controller):
             raise Exception("Unable to create task")
         task_push_to_queue(task)
         return task
+
+    @post(path="/process-scraped-doc/ny-puc/list")
+    async def process_nypuc_scraped_document_handler_list(
+        self,
+        data: List[NyPUCScraperSchema],
+        priority: bool,
+        docket_id: str = Parameter(title="Docket ID", description="Docket ID"),
+    ) -> List[Task]:
+        tasklist: List[Task] = []
+        for data_instance in data:
+            actual_data = convert_ny_to_scraper_info(data_instance)
+            actual_data.docket_id = docket_id
+            task = create_task(
+                actual_data,
+                priority=priority,
+                database_interaction=DatabaseInteraction.insert_later,
+                kwargs={},
+                task_type=TaskType.add_file_scraper,
+            )
+            if task is None:
+                raise Exception("Unable to create task")
+            task_push_to_queue(task)
+            tasklist.append(task)
+        return tasklist
