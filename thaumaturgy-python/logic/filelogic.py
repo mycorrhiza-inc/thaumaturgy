@@ -152,6 +152,8 @@ async def add_file_raw(
     file_manager = S3FileManager(logger=logger)
 
     def split_author_field_into_authordata(author_str: str) -> List[AuthorInformation]:
+        if author_str == "":
+            return []
         # Use LLMs to split out the code for stuff relating to the thing.
         author_list = [author.strip() for author in author_str.split(",")]
         author_info_list = [
@@ -208,6 +210,7 @@ async def add_file_raw(
         extension=metadata.get("extension", "") or "",
         lang=metadata.get("lang", "") or "",
         hash=filehash,
+        authors=split_author_field_into_authordata(metadata.get("authors", "")),
         mdata=mdata_dict_to_object(metadata),
         is_private=False,
     )
@@ -268,7 +271,7 @@ async def process_file_raw(
         assert isinstance(processed_original_text, str)
         assert processed_original_text != "", "Got Back Empty Processed Text"
         logger.info("Backed up markdown text")
-        text_list.append(
+        obj.doc_texts.append(
             FileTextSchema(
                 is_original_text=True,
                 language=obj.lang,
@@ -292,7 +295,7 @@ async def process_file_raw(
                 text["english_text"] = await mdextract.convert_text_into_eng(
                     text["original_text"], obj.lang
                 )
-                text_list.append(
+                obj.doc_texts.append(
                     FileTextSchema(
                         is_original_text=False,
                         language="en",
@@ -335,7 +338,7 @@ async def process_file_raw(
         return DocumentStatus.embeddings_completed
 
     async def create_summary():
-        assert text["english_text"]
+        assert text["english_text"] != "", "Cannot Summarize Empty Text"
         long_summary = await llm.simple_summary_truncate(text["english_text"])
         obj.extra.summary = long_summary
         short_sum_instruct = (
