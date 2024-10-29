@@ -1,3 +1,4 @@
+from uuid import UUID
 from common.misc_schemas import QueryData
 
 from common.file_schemas import DocumentStatus
@@ -6,6 +7,7 @@ import logging
 from logic.filelogic import (
     add_url_raw,
     process_file_raw,
+    upsert_full_file_to_db,
 )
 import asyncio
 import redis
@@ -27,6 +29,7 @@ from constants import (
 from pydantic import BaseModel
 from common.task_schema import (
     CompleteFileSchema,
+    DatabaseInteraction,
     ScraperInfo,
     Task,
     TaskType,
@@ -116,7 +119,15 @@ async def process_add_file_scraper(task: Task) -> None:
         "item_number": scraper_obj.item_number,
     }
     try:
-        result_file = await add_url_raw(file_url, metadata)
+        error, result_file = await add_url_raw(file_url, metadata)
+        if task.database_interact == DatabaseInteraction.insert:
+            result_file = await upsert_full_file_to_db(
+                result_file, insert=task.database_interact
+            )
+            assert isinstance(result_file.id, UUID)
+            assert result_file.id != UUID(
+                "00000000-0000-0000-0000-000000000000"
+            ), "File has a null UUID"
     except Exception as e:
         tb = traceback.format_exc()
         return_task = task
@@ -135,8 +146,15 @@ async def process_add_file_scraper(task: Task) -> None:
         return_task.obj = result_file
         return_task.completed = True
         return_task.success = True
+        db_interact = task.database_interact
+        if task.database_interact == DatabaseInteraction.insert:
+            db_interact = DatabaseInteraction.update
+        if task.database_interact == DatabaseInteraction.insert_later:
+            db_interact = DatabaseInteraction.insert
+
         new_task = create_task(
             obj=result_file,
+            database_interaction=db_interact,
             priority=task.priority,
             task_type=TaskType.process_existing_file,
         )
@@ -155,9 +173,21 @@ async def process_existing_file(task: Task) -> None:
     assert isinstance(obj, CompleteFileSchema)
     logger = default_logger
     try:
-        result_file = await process_file_raw(
+        error, result_file = await process_file_raw(
             obj, stop_at=DocumentStatus.completed, priority=task.priority
         )
+
+        if (
+            task.database_interact == DatabaseInteraction.insert
+            or task.database_interact == DatabaseInteraction.update
+        ):
+            result_file = await upsert_full_file_to_db(
+                result_file, interact=task.database_interact
+            )
+            assert isinstance(result_file.id, UUID)
+            assert result_file.id != UUID(
+                "00000000-0000-0000-0000-000000000000"
+            ), "File has a null UUID"
     except Exception as e:
         tb = traceback.format_exc()
         return_task = task
@@ -166,13 +196,12 @@ async def process_existing_file(task: Task) -> None:
         logger.error(f"encountered error while adding file: {e}")
         return_task.error = f"encountered error while adding file: {e}, \n {tb}"
         task.completed = True
+        return_task.success = False
+        return_task.error = str(e)
         task_upsert(return_task)
     else:
         return_task = task
         return_task.obj = result_file
+        task.completed = True
+        return_task.success = True
         task_upsert(return_task)
-        process_task = create_task(
-            result_file, False, kwargs={}, task_type=TaskType.process_existing_file
-        )
-        if process_task is not None:
-            task_push_to_queue(process_task)

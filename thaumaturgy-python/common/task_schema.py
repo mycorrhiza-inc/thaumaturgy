@@ -16,10 +16,18 @@ class TaskType(str, Enum):
     process_existing_file = "process_existing_file"
 
 
+class DatabaseInteraction(str, Enum):
+    none = "none"
+    insert_later = "insert_later"
+    update = "update"
+    insert = "insert"
+
+
 class Task(BaseModel):
     id: uuid.UUID = uuid.uuid4()
     url: str = f"https://thaum.kessler.xyz/v1/status/"
     priority: bool = True
+    database_interact: DatabaseInteraction
     task_type: TaskType
     table_name: str = ""
     kwargs: dict = {}
@@ -62,7 +70,11 @@ def task_rectify(task: Task) -> Task:
 
 
 def create_task(
-    obj: Any, priority: bool, kwargs: dict = {}, task_type: Optional[TaskType] = None
+    obj: Any,
+    priority: bool,
+    database_interaction: DatabaseInteraction,
+    kwargs: dict = {},
+    task_type: Optional[TaskType] = None,
 ) -> Optional[Task]:
     def determine_task_type(obj: Any) -> Optional[TaskType]:
         if isinstance(obj, CompleteFileSchema):
@@ -77,7 +89,13 @@ def create_task(
         assert computed_task_type == task_type
     if computed_task_type is None:
         return None
-    task = Task(task_type=computed_task_type, kwargs=kwargs, priority=priority, obj=obj)
+    task = Task(
+        task_type=computed_task_type,
+        kwargs=kwargs,
+        priority=priority,
+        obj=obj,
+        database_interact=database_interaction,
+    )
     # Sometimes the uuid's that are computed on each task are the same, so hopefully this recomputation reduces those allegedly impossible duplicates.
     task.id = uuid.uuid4()
     task = task_rectify(task)

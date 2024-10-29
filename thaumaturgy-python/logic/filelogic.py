@@ -1,7 +1,8 @@
 from copy import copy
+from hmac import new
 import traceback
 import uuid
-from typing_extensions import Doc
+from typing_extensions import Doc, Tuple
 from common.file_schemas import (
     AuthorInformation,
     CompleteFileSchema,
@@ -12,7 +13,7 @@ from common.file_schemas import (
     mdata_dict_to_object,
 )
 from common.niclib import download_file
-from common.task_schema import Task
+from common.task_schema import DatabaseInteraction, Task
 from common.llm_utils import KeLLMUtils
 import os
 from pathlib import Path
@@ -71,16 +72,16 @@ async def does_exist_file_with_hash(hash: str) -> bool:
 
 
 async def upsert_full_file_to_db(
-    obj: CompleteFileSchema, insert: bool
+    obj: CompleteFileSchema, interact: DatabaseInteraction
 ) -> CompleteFileSchema:
     obj = CompleteFileSchema.model_validate(obj, strict=True)
     if MOCK_DB_CONNECTION:
         return obj
     logger = default_logger
     original_id = copy(obj.id)
-    if insert:
+    if interact == DatabaseInteraction.insert:
         url = f"https://api.kessler.xyz/v2/public/files/insert"
-    else:
+    elif interact == DatabaseInteraction.update:
         assert isinstance(obj.id, UUID)
         assert obj.id != UUID(
             "00000000-0000-0000-0000-000000000000"
@@ -88,6 +89,8 @@ async def upsert_full_file_to_db(
         id_str = str(obj.id)
         url = f"https://api.kessler.xyz/v2/public/files/{id_str}"
         logger.info(f"Hitting file update endpoint: {url}")
+    else:
+        return obj
     json_data_string = obj.model_dump_json()
     logger.info(json_data_string)
     for _ in range(3):
@@ -134,7 +137,7 @@ async def add_url_raw(
     file_url: str,
     metadata: dict,
     check_duplicate: bool = False,
-) -> CompleteFileSchema:
+) -> Tuple[Optional[str], CompleteFileSchema]:
     download_dir = OS_TMPDIR / Path("downloads")
     result_path = await download_file(file_url, download_dir)
     doctype = metadata.get("extension")
@@ -147,7 +150,7 @@ async def add_file_raw(
     tmp_filepath: Path,
     metadata: dict,
     check_duplicate: bool = False,
-) -> CompleteFileSchema:
+) -> Tuple[Optional[str], CompleteFileSchema]:
     logger = default_logger
     file_manager = S3FileManager(logger=logger)
 
@@ -214,19 +217,14 @@ async def add_file_raw(
         mdata=mdata_dict_to_object(metadata),
         is_private=False,
     )
-    file_from_server = await upsert_full_file_to_db(new_file, insert=True)
-    assert isinstance(file_from_server.id, UUID)
-    assert file_from_server.id != UUID(
-        "00000000-0000-0000-0000-000000000000"
-    ), "File has a null UUID"
-    return file_from_server
+    return None, new_file
 
 
 async def process_file_raw(
     obj: CompleteFileSchema,
     stop_at: Optional[DocumentStatus] = None,
     priority: bool = True,
-):
+) -> Tuple[Optional[str], CompleteFileSchema]:
     obj = CompleteFileSchema.model_validate(obj, strict=True)
     assert obj.id != UUID("00000000-0000-0000-0000-000000000000")
     logger = default_logger
@@ -364,8 +362,7 @@ async def process_file_raw(
                 is_errored=True,
                 is_completed=True,
             )
-            await upsert_full_file_to_db(obj, insert=False)
-            return obj
+            return None, obj
         try:
             match current_stage:
                 case DocumentStatus.unprocessed:
@@ -397,5 +394,4 @@ async def process_file_raw(
                 is_errored=True,
                 is_completed=True,
             )
-            await upsert_full_file_to_db(obj, insert=False)
-            raise e
+            return str(e), obj

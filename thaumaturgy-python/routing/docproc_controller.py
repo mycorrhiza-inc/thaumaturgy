@@ -29,6 +29,7 @@ from util.redis_utils import task_get, task_push_to_queue
 
 
 from common.task_schema import (
+    DatabaseInteraction,
     ScraperInfo,
     Task,
     TaskType,
@@ -93,7 +94,11 @@ class DocumentProcesserController(Controller):
         self, data: CompleteFileSchema, priority: bool
     ) -> Task:
         task = create_task(
-            data, priority, kwargs={}, task_type=TaskType.process_existing_file
+            data,
+            priority=priority,
+            database_interaction=DatabaseInteraction.update,
+            kwargs={},
+            task_type=TaskType.process_existing_file,
         )
         if task is None:
             raise Exception("Unable to create task")
@@ -106,7 +111,11 @@ class DocumentProcesserController(Controller):
         self, data: ScraperInfo, priority: bool
     ) -> Task:
         task = create_task(
-            data, priority, kwargs={}, task_type=TaskType.add_file_scraper
+            data,
+            priority=priority,
+            database_interaction=DatabaseInteraction.insert_later,
+            kwargs={},
+            task_type=TaskType.add_file_scraper,
         )
         if task is None:
             raise Exception("Unable to create task")
@@ -123,7 +132,11 @@ class DocumentProcesserController(Controller):
         actual_data = convert_ny_to_scraper_info(data)
         actual_data.docket_id = docket_id
         task = create_task(
-            actual_data, priority, kwargs={}, task_type=TaskType.add_file_scraper
+            actual_data,
+            priority=priority,
+            database_interaction=DatabaseInteraction.insert_later,
+            kwargs={},
+            task_type=TaskType.add_file_scraper,
         )
         if task is None:
             raise Exception("Unable to create task")
