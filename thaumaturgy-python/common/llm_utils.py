@@ -172,6 +172,25 @@ class KeLLMUtils:
         str_response = remove_prefixes(str_response)
         return KeChatMessage(role=ChatRole.assistant, content=str_response)
 
+    async def simple_summary_truncate(
+        self, content: str, truncate_chars: int = 5000
+    ) -> str:
+        if len(content) > truncate_chars + 1:
+            content = content[:truncate_chars]
+        history = [
+            KeChatMessage(
+                content="Please provide a summary of the following content",
+                role=ChatRole.system,
+            ),
+            KeChatMessage(content=content, role=ChatRole.user),
+            KeChatMessage(
+                content="Now please summarize the content above, dont do anything else except return a detailed summary.",
+                role=ChatRole.system,
+            ),
+        ]
+        completion = await self.achat(history)
+        return completion.content
+
     async def simple_instruct(self, content: str, instruct: str) -> str:
         history = [
             KeChatMessage(content=instruct, role=ChatRole.system),

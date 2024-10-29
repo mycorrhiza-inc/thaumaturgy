@@ -82,6 +82,7 @@ async def upsert_full_file_to_db(
         assert isinstance(obj.id, UUID)
         id_str = str(obj.id)
         url = f"https://api.kessler.xyz/v2/public/files/{id_str}"
+        logger.info(f"Hitting file update endpoint: {url}")
     json_data_string = obj.model_dump_json()
     logger.info(json_data_string)
     for _ in range(3):
@@ -326,7 +327,7 @@ async def process_file_raw(
 
     async def create_summary():
         assert text["english_text"]
-        long_summary = await llm.summarize_mapreduce(text["english_text"])
+        long_summary = await llm.simple_summary_truncate(text["english_text"])
         obj.extra.summary = long_summary
         short_sum_instruct = (
             "Take this long summary and condense it into a 1-2 sentance short summary."
