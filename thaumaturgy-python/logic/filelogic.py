@@ -170,7 +170,9 @@ async def add_file_raw(
             json_authorlist = await llm.simple_instruct(author_str, command)
             author_list = json.loads(json_authorlist)
         except Exception as e:
-            logger.error(f"LLM encountered some error or produced unparsable data {e}")
+            logger.error(
+                f'LLM encountered some error or produced unparsable data, splitting on "," as a backup: {e}',
+            )
             author_list = author_str.split(",")
 
         author_info_list = [
