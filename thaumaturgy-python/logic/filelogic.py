@@ -10,6 +10,7 @@ from common.file_schemas import (
     FileMetadataSchema,
     FileTextSchema,
     PGStage,
+    getListAuthors,
     mdata_dict_to_object,
 )
 from common.niclib import download_file
@@ -154,11 +155,24 @@ async def add_file_raw(
     logger = default_logger
     file_manager = S3FileManager(logger=logger)
 
-    def split_author_field_into_authordata(author_str: str) -> List[AuthorInformation]:
+    llm = KeLLMUtils("llama-70b")  # M6yabe replace with something cheeper.
+
+    async def split_author_field_into_authordata(
+        author_str: str,
+    ) -> List[AuthorInformation]:
         if author_str == "":
             return []
+        # If string has no commas return the string as a singleton author information, not implementing since it might be a ny specific thing.
+
         # Use LLMs to split out the code for stuff relating to the thing.
-        author_list = [author.strip() for author in author_str.split(",")]
+        command = 'Take the list of organisations and return a json list of the authors like so ["Organisation 1", "Organization 2, Inc"]. Dont return anything except a json parsable list.'
+        try:
+            json_authorlist = await llm.simple_instruct(author_str, command)
+            author_list = json.loads(json_authorlist)
+        except Exception as e:
+            logger.error(f"LLM encountered some error or produced unparsable data {e}")
+            author_list = author_str.split(",")
+
         author_info_list = [
             AuthorInformation(
                 author_id=UUID("00000000-0000-0000-0000-000000000000"),
@@ -207,16 +221,20 @@ async def add_file_raw(
             raise Exception("File Already exists in DB, erroring out.")
     # FIXME: RENEABLE BACKUPS AT SOME POINT
     # file_manager.backup_metadata_to_hash(metadata, filehash)
+    authors_info = await split_author_field_into_authordata(metadata.get("authors", ""))
+    authors_strings = getListAuthors(authors_info)
+    metadata["authors"] = authors_strings
     new_file = CompleteFileSchema(
         id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
         name=metadata.get("title", "") or "",
         extension=metadata.get("extension", "") or "",
         lang=metadata.get("lang", "") or "",
         hash=filehash,
-        authors=split_author_field_into_authordata(metadata.get("authors", "")),
+        authors=authors_info,
         mdata=mdata_dict_to_object(metadata),
         is_private=False,
     )
+
     return None, new_file
 
 

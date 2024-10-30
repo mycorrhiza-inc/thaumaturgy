@@ -122,7 +122,7 @@ async def process_add_file_scraper(task: Task) -> None:
         error, result_file = await add_url_raw(file_url, metadata)
         if task.database_interact == DatabaseInteraction.insert:
             result_file = await upsert_full_file_to_db(
-                result_file, insert=task.database_interact
+                result_file, interact=task.database_interact
             )
             assert isinstance(result_file.id, UUID)
             assert result_file.id != UUID(

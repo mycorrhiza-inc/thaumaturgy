@@ -67,6 +67,10 @@ class AuthorInformation(BaseModel):
     author_name: str
 
 
+def getListAuthors(authorinfo_list: List[AuthorInformation]) -> List[str]:
+    return [author.author_name for author in authorinfo_list]
+
+
 class FileMetadataSchema(BaseModel):
     json_obj: str = ""
 
