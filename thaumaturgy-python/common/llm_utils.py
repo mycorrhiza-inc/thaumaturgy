@@ -146,7 +146,7 @@ def force_conform_chat(chat_history: List[Dict[str, str]]) -> List[Dict[str, str
 
 
 class KeLLMUtils:
-    def __init__(self, llm: Union[str, Any]) -> None:
+    def __init__(self, llm: Union[str, Any], slow_retry: bool = False) -> None:
         if llm == "":
             llm = None
         if llm is None:
@@ -154,10 +154,29 @@ class KeLLMUtils:
         if isinstance(llm, str):
             llm = get_llm_from_model_str(llm)
         self.llm = llm
+        self.request_tries = (
+            1 + slow_retry * 2
+        )  # Only try once if slow_retry is false, else try 3 times
+        self.retry_timeout_seconds = 60
 
     async def achat(self, chat_history: Any) -> Any:
+        logger = default_logger
         llama_chat_history = sanitzie_chathistory_llamaindex(chat_history)
-        response = await self.llm.achat(llama_chat_history)
+        successful_request = False
+        response = None
+        for i in range(0, self.request_tries):
+            try:
+                response = await self.llm.achat(llama_chat_history)
+            except Exception as e:
+                logger.info(f"Encountered error during llm response {e}")
+                if i == self.request_tries - 1:
+                    raise e
+                await asyncio.sleep(self.retry_timeout_seconds)
+            else:
+                break
+        if response is None:
+            raise Exception("LLM retried until it rturned ")
+
         str_response = str(response)
 
         def remove_prefixes(input_string: str) -> str:

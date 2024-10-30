@@ -52,23 +52,37 @@ async def main_processing_loop() -> None:
     default_logger.info("Starting the daemon processes docs in the queue.")
 
     async def activity():
-        concurrent_docs = int(redis_client.get(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS))
-        if concurrent_docs >= max_concurrent_docs:
+        try:
+            concurrent_docs = int(
+                redis_client.get(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS)
+            )
+        except Exception as e:
+            default_logger.error(
+                f"Could not get number of currently processing docs from redis, stopping document processing out of an abundance of caution: {e}"
+            )
             await asyncio.sleep(2)
             return None
-        pull_obj = task_pop_from_queue(redis_client=redis_client)
-        if pull_obj is None:
+        if concurrent_docs >= max_concurrent_docs:
+            default_logger.info("At Capacity, Not adding any more documents.")
+            await asyncio.sleep(2)
+            return None
+        try:
+            pull_obj = task_pop_from_queue(redis_client=redis_client)
+        except Exception as e:
+            default_logger.error(f"Redis Error getting task from queue {e}")
             await asyncio.sleep(2)
             return None
 
-        increment_doc_counter(1, redis_client=redis_client)
+        if pull_obj is None:
+            await asyncio.sleep(2)
+            return None
         try:
             asyncio.create_task(execute_task(task=pull_obj))
         except Exception as e:
+            default_logger.error(
+                f"Encountered error while creating an async task object: {e}"
+            )
             await asyncio.sleep(2)
-            raise e
-        finally:
-            increment_doc_counter(-1, redis_client=redis_client)
         return None
 
     # Logic to force it to process each loop sequentially
@@ -76,7 +90,7 @@ async def main_processing_loop() -> None:
     while result is None:
         try:
             result = await activity()
-        except Exception as e:
+        except Exception:
             result = None
 
 
@@ -86,16 +100,24 @@ def initialize_background_loops() -> None:
 
 async def execute_task(task: Task) -> None:
     logger = default_logger
-    logger.info(f"Executing task of type {task.task_type.value}: {task.id}")
-    match task.task_type:
-        case TaskType.add_file_scraper:
-            task.obj = ScraperInfo.model_validate(task.obj)
-            await process_add_file_scraper(task)
-        case TaskType.process_existing_file:
-            task.obj = CompleteFileSchema.model_validate(task.obj)
-            await process_existing_file(task)
+    increment_doc_counter(1, redis_client=redis_client)
+    # logger.info(f"Executing task of type {task.task_type.value}: {task.id}")
+    try:
+        match task.task_type:
+            case TaskType.add_file_scraper:
+                task.obj = ScraperInfo.model_validate(task.obj)
+                await process_add_file_scraper(task)
+            case TaskType.process_existing_file:
+                task.obj = CompleteFileSchema.model_validate(task.obj)
+                await process_existing_file(task)
+    except Exception:
+        logger.error(
+            "Somehow an exception made it to the top task excecution level, this shouldnt happen, exception handling should be done inside each task function."
+        )
 
-    logger.info(f"Finished executing task of type {task.task_type.value}: {task.id}")
+    increment_doc_counter(-1, redis_client=redis_client)
+
+    # logger.info(f"Finished executing task of type {task.task_type.value}: {task.id}")
 
 
 async def process_add_file_scraper(task: Task) -> None:
@@ -139,9 +161,9 @@ async def process_add_file_scraper(task: Task) -> None:
         return_task.success = False
         task_upsert(return_task)
     else:
-        logger.info(
-            f"File addition step execute successfully, adding a document processing event to the queue."
-        )
+        # logger.info(
+        #     f"File addition step execute successfully, adding a document processing event to the queue."
+        # )
         return_task = task
         return_task.obj = result_file
         return_task.completed = True

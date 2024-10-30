@@ -38,10 +38,7 @@ from typing import List, Optional
 # from routing.file_controller import QueryData
 
 import json
-
 from common.niclib import rand_string
-
-
 from util.file_io import S3FileManager
 
 # import base64
@@ -154,8 +151,8 @@ async def add_file_raw(
 ) -> Tuple[Optional[str], CompleteFileSchema]:
     logger = default_logger
     file_manager = S3FileManager(logger=logger)
-
-    llm = KeLLMUtils("llama-70b")  # M6yabe replace with something cheeper.
+    # This step doesnt need anything super sophisticated, and also has contingecnices for failed requests, so retries are kinda unecessary
+    small_llm = KeLLMUtils("llama-8b", slow_retry=False)
 
     async def split_author_field_into_authordata(
         author_str: str,
@@ -167,7 +164,7 @@ async def add_file_raw(
         # Use LLMs to split out the code for stuff relating to the thing.
         command = 'Take the list of organisations and return a json list of the authors like so ["Organisation 1", "Organization 2, Inc"]. Dont return anything except a json parsable list.'
         try:
-            json_authorlist = await llm.simple_instruct(author_str, command)
+            json_authorlist = await small_llm.simple_instruct(author_str, command)
             author_list = json.loads(json_authorlist)
         except Exception as e:
             logger.error(
@@ -259,7 +256,9 @@ async def process_file_raw(
     logger.info(type(obj))
     logger.info(obj)
     current_stage = DocumentStatus(obj.stage.docproc_stage)
-    llm = KeLLMUtils("llama-70b")  # M6yabe replace with something cheeper.
+    llm = KeLLMUtils(
+        "llama-70b", slow_retry=True
+    )  # Maybe replace with something cheeper.
     mdextract = MarkdownExtractor(logger, OS_TMPDIR, priority=priority)
     file_manager = S3FileManager(logger=logger)
     text = {}
@@ -395,6 +394,8 @@ async def process_file_raw(
                     current_stage = await create_summary()
                 case DocumentStatus.summarization_completed:
                     current_stage = await process_embeddings()
+                case DocumentStatus.embeddings_completed:
+                    current_stage = DocumentStatus.completed
                 case _:
                     raise Exception(
                         "Document was incorrectly added to database, \
