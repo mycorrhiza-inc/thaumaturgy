@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from pydantic import Field, field_validator, TypeAdapter
 
-from typing import List
+from typing import Any, Dict, List
 
 
 from enum import Enum
@@ -72,7 +72,7 @@ def getListAuthors(authorinfo_list: List[AuthorInformation]) -> List[str]:
 
 
 class FileMetadataSchema(BaseModel):
-    json_obj: str = ""
+    json_obj: Dict[str, Any] = {}
 
 
 class CompleteFileSchema(BaseModel):
@@ -89,19 +89,8 @@ class CompleteFileSchema(BaseModel):
     authors: List[AuthorInformation] = []
 
 
-def mdata_dict_to_object(mdata_dict: dict) -> FileMetadataSchema:
-    try:
-        json_data = json.dumps(mdata_dict)
-        mdata_obj = FileMetadataSchema(json_obj=json_data)
-        return mdata_obj
-    except Exception as e:
-        tb = traceback.format_exc()
-        error_string = f"Encountered error converting metadata to json: {e}"
-        traceback_string = f"{tb}"
-        return_dict = {"error": error_string, "traceback": traceback_string}
-        error_json_obj = json.dumps(return_dict)
-        error_mdata_obj = FileMetadataSchema(json_obj=error_json_obj)
-        return error_mdata_obj
+def mdata_dict_to_object(mdata_dict: Dict[str, Any]) -> FileMetadataSchema:
+    return FileMetadataSchema(json_obj=mdata_dict)
 
 
 # I am deeply sorry for not reading the python documentation ahead of time and storing the stage of processed strings instead of ints, hopefully this can atone for my mistakes

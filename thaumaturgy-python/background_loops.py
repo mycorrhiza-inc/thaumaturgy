@@ -78,6 +78,9 @@ async def main_processing_loop() -> None:
             return None
         try:
             asyncio.create_task(execute_task(task=pull_obj))
+            # Give some time for the process to update the ratelimit in redis, if this is causing a throughput issue it should be okay to bring it down to .01 seconds or 10 miliseconds
+            await asyncio.sleep(0.1)
+
         except Exception as e:
             default_logger.error(
                 f"Encountered error while creating an async task object: {e}"
@@ -99,8 +102,8 @@ def initialize_background_loops() -> None:
 
 
 async def execute_task(task: Task) -> None:
-    logger = default_logger
     increment_doc_counter(1, redis_client=redis_client)
+    logger = default_logger
     # logger.info(f"Executing task of type {task.task_type.value}: {task.id}")
     try:
         match task.task_type:
@@ -131,7 +134,7 @@ async def process_add_file_scraper(task: Task) -> None:
     metadata = {
         "url": scraper_obj.file_url,
         "extension": filetype,
-        "lang": "",
+        "lang": "en",
         "title": scraper_obj.name,
         "source": scraper_obj.internal_source_name,
         "date": scraper_obj.published_date,
