@@ -21,6 +21,7 @@ class DatabaseInteraction(str, Enum):
     insert_later = "insert_later"
     update = "update"
     insert = "insert"
+    monlith_report_gen = "monolith_report_gen"
 
 
 class Task(BaseModel):
@@ -48,16 +49,29 @@ class DocTextInfo(BaseModel):
 
 
 class ScraperInfo(BaseModel):
-    file_url: str  # throw a get request at this url to get the file
+    file_url: str = ""  # throw a get request at this url to get the file
+    text: str = ""  # Or get the text content from this field
+    hash: str = ""  # Or get the file corrosponding to this hash from s3
     name: str = ""
     published_date: str = ""
     internal_source_name: str = ""
     docket_id: str = ""
+    author_individual: str = ""
+    author_individual_email: str = ""
     author_organisation: str = ""
     file_class: str = ""  # Decision, Public Comment, etc
     file_type: str = ""  # PDF, DOCX, etc
     lang: str = ""  # defaults to "en" unless otherwise specified
     item_number: str = ""
+
+
+class BulkProcessInfo(BaseModel):
+    generate_report: bool = False
+    report_id: str = ""
+    database_interaction: DatabaseInteraction = (
+        DatabaseInteraction.insert_later
+    )  # change to insert, once updates actually work.
+    override_scrape_info: ScraperInfo = ScraperInfo()
 
 
 def task_rectify(task: Task) -> Task:
