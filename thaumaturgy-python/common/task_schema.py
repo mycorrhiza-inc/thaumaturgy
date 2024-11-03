@@ -3,7 +3,7 @@
 
 from pydantic import BaseModel
 import uuid
-from typing import Optional, Any
+from typing import List, Optional, Any
 from datetime import datetime
 from enum import Enum
 
@@ -72,6 +72,18 @@ class BulkProcessInfo(BaseModel):
         DatabaseInteraction.insert_later
     )  # change to insert, once updates actually work.
     override_scrape_info: ScraperInfo = ScraperInfo()
+
+
+class BulkProcessSchema(BaseModel):
+    scraper_info_list: List[ScraperInfo]
+    bulk_info: BulkProcessInfo
+
+
+def override_scraper_info(original: ScraperInfo, override: ScraperInfo) -> ScraperInfo:
+    for k, v in override.model_dump().items():
+        if v is not None or v != "":
+            setattr(original, k, v)
+    return original
 
 
 def task_rectify(task: Task) -> Task:
