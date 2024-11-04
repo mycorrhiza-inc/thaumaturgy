@@ -21,7 +21,9 @@ class DatabaseInteraction(str, Enum):
     insert_later = "insert_later"
     update = "update"
     insert = "insert"
-    monlith_report_gen = "monolith_report_gen"
+    insert_report_later = "insert_report_later"
+    insert_report = "insert_report"
+    update_report = "update_report"
 
 
 class Task(BaseModel):

@@ -123,6 +123,25 @@ async def execute_task(task: Task) -> None:
     # logger.info(f"Finished executing task of type {task.task_type.value}: {task.id}")
 
 
+def evolve_db_interact(
+    interact: DatabaseInteraction, next_task_type: TaskType
+) -> DatabaseInteraction:
+    if next_task_type == TaskType.process_existing_file:
+        match interact:
+            case DatabaseInteraction.insert:
+                return DatabaseInteraction.update
+            case DatabaseInteraction.insert_later:
+                return DatabaseInteraction.insert
+            case DatabaseInteraction.insert_report_later:
+                return DatabaseInteraction.insert_report
+            case DatabaseInteraction.insert_report:
+                return DatabaseInteraction.update_report
+            case _:
+                return interact
+    else:
+        return interact
+
+
 async def process_add_file_scraper(task: Task) -> None:
     scraper_obj = task.obj
     assert isinstance(scraper_obj, ScraperInfo)
@@ -171,12 +190,9 @@ async def process_add_file_scraper(task: Task) -> None:
         return_task.obj = result_file
         return_task.completed = True
         return_task.success = True
-        db_interact = task.database_interact
-        if task.database_interact == DatabaseInteraction.insert:
-            db_interact = DatabaseInteraction.update
-        if task.database_interact == DatabaseInteraction.insert_later:
-            db_interact = DatabaseInteraction.insert
-
+        db_interact = evolve_db_interact(
+            return_task.database_interact, TaskType.process_existing_file
+        )
         new_task = create_task(
             obj=result_file,
             database_interaction=db_interact,
