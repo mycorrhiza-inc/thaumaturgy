@@ -40,6 +40,7 @@ from typing import List, Optional
 
 import json
 from common.niclib import rand_string
+from logic.llm_extras import ExtraGenerator
 from util.file_io import S3FileManager
 
 # import base64
@@ -260,6 +261,7 @@ async def process_file_raw(
     llm = KeLLMUtils(
         "llama-70b", slow_retry=True
     )  # Maybe replace with something cheeper.
+    extra_gen = ExtraGenerator()
     mdextract = MarkdownExtractor(logger, OS_TMPDIR, priority=priority)
     file_manager = S3FileManager(logger=logger)
     text = {}
@@ -355,17 +357,9 @@ async def process_file_raw(
         return DocumentStatus.embeddings_completed
 
     async def create_llm_extras():
-        doc_extras = FileGeneratedExtras()
-        assert text["english_text"] != "", "Cannot Summarize Empty Text"
-        long_summary = await llm.simple_summary_truncate(text["english_text"])
-        doc_extras.summary = long_summary
-        short_sum_instruct = (
-            "Take this long summary and condense it into a 1-2 sentance short summary."
-        )
-        short_summary = await llm.simple_instruct(
-            content=long_summary, instruct=short_sum_instruct
-        )
-        doc_extras.short_summary = short_summary
+        extras = await extra_gen.generate_extra_from_file(obj)
+        obj.extra = extras
+
         return DocumentStatus.summarization_completed
 
         # await the json if async
@@ -392,7 +386,7 @@ async def process_file_raw(
                 case DocumentStatus.stage2:
                     current_stage = await process_stage_two()
                 case DocumentStatus.stage3:
-                    current_stage = await create_summary()
+                    current_stage = await create_llm_extras()
                 case DocumentStatus.summarization_completed:
                     current_stage = await process_embeddings()
                 case DocumentStatus.embeddings_completed:

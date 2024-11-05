@@ -4,7 +4,7 @@ from common.misc_schemas import QueryData
 from common.file_schemas import DocumentStatus
 
 import logging
-from logic.filelogic import (
+from logic.file_logic import (
     add_url_raw,
     process_file_raw,
     upsert_full_file_to_db,

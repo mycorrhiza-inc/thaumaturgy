@@ -1,5 +1,6 @@
 import json
 import traceback
+from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel
 
@@ -92,6 +93,14 @@ class CompleteFileSchema(BaseModel):
 
 def mdata_dict_to_object(mdata_dict: Dict[str, Any]) -> FileMetadataSchema:
     return FileMetadataSchema(json_obj=mdata_dict)
+
+
+def get_english_text_from_fileschema(file: CompleteFileSchema) -> Optional[str]:
+    texts = file.doc_texts
+    for text in texts:
+        if text.language == "en":
+            return text.text
+    return None
 
 
 # I am deeply sorry for not reading the python documentation ahead of time and storing the stage of processed strings instead of ints, hopefully this can atone for my mistakes

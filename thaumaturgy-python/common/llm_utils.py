@@ -218,6 +218,30 @@ class KeLLMUtils:
         completion = await self.achat(history)
         return completion.content
 
+    async def score_two_step(
+        self, content: str, score_instruction: str, renorm_score_val: float = 1.0
+    ) -> float:
+        formatted_score_instruction = f"Please think about what score you want to give the content for the following instructions: {score_instruction}\n Please think out loud and provide a justification for what score it should recive."
+        history = [
+            KeChatMessage(
+                content="Here is some content you should assign a score to according to the instructions given at the end",
+                role=ChatRole.system,
+            ),
+            KeChatMessage(content=content, role=ChatRole.user),
+            KeChatMessage(content=formatted_score_instruction, role=ChatRole.system),
+        ]
+        response = await self.achat(history)
+        history.append(response)
+        history.append(
+            KeChatMessage(
+                content="Now please provide a score, include nothing else in your response",
+                role=ChatRole.user,
+            )
+        )
+        response = await self.achat(history)
+        score_val = float(response.content)
+        return score_val / renorm_score_val
+
     async def split_and_apply_instructions(
         self,
         content: str,
