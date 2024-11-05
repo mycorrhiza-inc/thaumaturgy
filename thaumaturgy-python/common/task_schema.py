@@ -88,12 +88,32 @@ def override_scraper_info(original: ScraperInfo, override: ScraperInfo) -> Scrap
     return original
 
 
+def task_validate_object(task: Task, panic_if_invalid: bool = False) -> Task:
+    convert_type = None
+    if task.task_type == TaskType.add_file_scraper and not isinstance(
+        task.obj, ScraperInfo
+    ):
+        convert_type = ScraperInfo
+    if task.task_type == TaskType.process_existing_file and not isinstance(
+        task.obj, CompleteFileSchema
+    ):
+        convert_type = CompleteFileSchema
+
+    if convert_type is not None:
+        task.obj = convert_type.model_validate(task.obj)
+    return task
+
+
 def task_rectify(task: Task) -> Task:
     assert task.id != uuid.UUID(
         "00000000-0000-0000-0000-000000000000"
     ), "Task has a null UUID"
     task.updated_at = datetime.now()
     task.url = f"https://thaum.kessler.xyz/v1/status/{task.id}"
+    task = task_validate_object(
+        task,
+    )
+
     return task
 
 

@@ -60,6 +60,7 @@ class FileGeneratedExtras(BaseModel):
     summary: str = ""
     short_summary: str = ""
     purpose: str = ""
+    impressiveness: float = 0.0
 
 
 class AuthorInformation(BaseModel):

@@ -7,6 +7,7 @@ from common.file_schemas import (
     AuthorInformation,
     CompleteFileSchema,
     DocProcStage,
+    FileGeneratedExtras,
     FileMetadataSchema,
     FileTextSchema,
     PGStage,
@@ -353,18 +354,18 @@ async def process_file_raw(
 
         return DocumentStatus.embeddings_completed
 
-    async def create_summary():
+    async def create_llm_extras():
+        doc_extras = FileGeneratedExtras()
         assert text["english_text"] != "", "Cannot Summarize Empty Text"
         long_summary = await llm.simple_summary_truncate(text["english_text"])
-        obj.extra.summary = long_summary
+        doc_extras.summary = long_summary
         short_sum_instruct = (
             "Take this long summary and condense it into a 1-2 sentance short summary."
         )
         short_summary = await llm.simple_instruct(
             content=long_summary, instruct=short_sum_instruct
         )
-        obj.extra.short_summary = short_summary
-
+        doc_extras.short_summary = short_summary
         return DocumentStatus.summarization_completed
 
         # await the json if async
