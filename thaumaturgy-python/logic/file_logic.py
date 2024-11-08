@@ -7,12 +7,9 @@ from common.file_schemas import (
     AuthorInformation,
     CompleteFileSchema,
     DocProcStage,
-    FileGeneratedExtras,
-    FileMetadataSchema,
     FileTextSchema,
     PGStage,
     getListAuthors,
-    mdata_dict_to_object,
 )
 from common.niclib import download_file
 from common.task_schema import DatabaseInteraction, Task
@@ -46,10 +43,8 @@ from util.file_io import S3FileManager
 # import base64
 
 from constants import (
-    KESSLER_API_URL,
     OS_TMPDIR,
     OS_HASH_FILEDIR,
-    OS_BACKUP_FILEDIR,
     MOCK_DB_CONNECTION,
 )
 
@@ -232,7 +227,7 @@ async def add_file_raw(
         lang=metadata.get("lang", "") or "",
         hash=filehash,
         authors=authors_info,
-        mdata=mdata_dict_to_object(metadata),
+        mdata=metadata,
         is_private=False,
     )
 

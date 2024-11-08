@@ -84,15 +84,11 @@ class CompleteFileSchema(BaseModel):
     name: str
     hash: str
     is_private: bool
-    mdata: FileMetadataSchema
+    mdata: Dict[str, Any]
     doc_texts: List[FileTextSchema] = []
     stage: DocProcStage = NEWDOCSTAGE
     extra: FileGeneratedExtras = FileGeneratedExtras()
     authors: List[AuthorInformation] = []
-
-
-def mdata_dict_to_object(mdata_dict: Dict[str, Any]) -> FileMetadataSchema:
-    return FileMetadataSchema(json_obj=mdata_dict)
 
 
 def get_english_text_from_fileschema(file: CompleteFileSchema) -> Optional[str]:
