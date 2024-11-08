@@ -242,6 +242,33 @@ class KeLLMUtils:
         score_val = float(response.content)
         return score_val / renorm_score_val
 
+    async def boolean_two_step(self, content: str, yes_or_no_instruction: str) -> bool:
+        formatted_score_instruction = f"Please think about what the answer to the following question should be: {yes_or_no_instruction}\n Please think out loud and provide a justification for what you should answer."
+        history = [
+            KeChatMessage(
+                content="Here is some content you should give a yes or no answer to according to the instructions given at the end",
+                role=ChatRole.system,
+            ),
+            KeChatMessage(content=content, role=ChatRole.user),
+            KeChatMessage(content=formatted_score_instruction, role=ChatRole.system),
+        ]
+        response = await self.achat(history)
+        history.append(response)
+        history.append(
+            KeChatMessage(
+                content='Now please provide answer "yes" or "no" to the original question, include nothing else in your response',
+                role=ChatRole.user,
+            )
+        )
+        response = (await self.achat(history)).content
+        if response == "yes":
+            return True
+        if response == "no":
+            return False
+        raise Exception(
+            "Could not parse yes or no response from llm, TODO: Implement retry code"
+        )
+
     async def split_and_apply_instructions(
         self,
         content: str,
