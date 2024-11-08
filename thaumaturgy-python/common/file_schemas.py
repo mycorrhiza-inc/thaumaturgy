@@ -14,6 +14,10 @@ from enum import Enum
 from common.org_schemas import OrganizationSchema, IndividualSchema
 
 
+import copy
+import yaml
+
+
 class FileTextSchema(BaseModel):
     is_original_text: bool
     language: str
@@ -68,6 +72,9 @@ class AuthorInformation(BaseModel):
     author_id: UUID = UUID("00000000-0000-0000-0000-000000000000")
     author_name: str
 
+    def display(self):
+        return f"Author: {self.author_name}"
+
 
 def getListAuthors(authorinfo_list: List[AuthorInformation]) -> List[str]:
     return [author.author_name for author in authorinfo_list]
@@ -89,6 +96,27 @@ class CompleteFileSchema(BaseModel):
     stage: DocProcStage = NEWDOCSTAGE
     extra: FileGeneratedExtras = FileGeneratedExtras()
     authors: List[AuthorInformation] = []
+
+    def display_llm_noextras_beyond_summary(self) -> str:
+        metadata = self.display_trimmed_mdata()
+        basic_data = f"Name:{self.name}\nLang:{self.lang}\nMetadata:\n{metadata}\nShort Summary: {self.extra.short_summary}"
+        author_strings = "\n".join([author.display() for author in self.authors])
+        text_data = f"Text:{get_english_text_from_fileschema(self)}"
+        if len(text_data) > 3000:
+            text_data = f"Document To Long, Providing truncated doc and summary\n Beginning of Document:{text_data[:500]}...\nSummary:{self.extra.summary}"
+        return "\n".join([basic_data, author_strings, text_data])
+
+    def display_trimmed_mdata(self) -> str:
+        copied_mdata = copy.deepcopy(self.mdata)
+        del copied_mdata["id"]
+        del copied_mdata["uuid"]
+        del copied_mdata["name"]
+        del copied_mdata["lang"]
+        del copied_mdata["hash"]
+        del copied_mdata["stage"]
+        del copied_mdata["authors"]
+        output = yaml.dump(copied_mdata)
+        return output
 
 
 def get_english_text_from_fileschema(file: CompleteFileSchema) -> Optional[str]:
