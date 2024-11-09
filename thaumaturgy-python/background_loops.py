@@ -151,6 +151,7 @@ async def process_add_file_scraper(task: Task) -> None:
         filetype = "pdf"
     file_url = scraper_obj.file_url
     metadata = {
+        "docket_id": scraper_obj.docket_id,
         "url": scraper_obj.file_url,
         "extension": filetype,
         "lang": "en",
@@ -160,6 +161,7 @@ async def process_add_file_scraper(task: Task) -> None:
         "file_class": scraper_obj.file_class,
         "author_organisation": scraper_obj.author_organisation,
         "author": scraper_obj.author_organisation,
+        "author_email": scraper_obj.author_individual_email,
         "item_number": scraper_obj.item_number,
     }
     try:
