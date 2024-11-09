@@ -61,8 +61,9 @@ class ExtraGenerator:
         except Exception as e:
             self.logger.error(f"Failed calling llm to determine document purpose: {e}")
 
-        try:
-            private_matter_instruction = "Is this document concern most accurately described as a private matter between two organisations (individuals, corperations, the goverment), that would not have a broader impact on public policy. Or could the impacts reach out to a broader community and is a matter multiple parties are engaged in?"
-        except Exception as e:
-            self.logger.error(f"Failed to generate private matter: {e}")
+        # try:
+        #     private_matter_instruction = "Is this document concern most accurately described as a private matter between two organisations (individuals, corperations, the goverment), that would not have a broader impact on public policy. Or could the impacts reach out to a broader community and is a matter multiple parties are engaged in? Reply yes i"
+        #     private_matter_bool = await self.big_llm.boolean_two_step(content=document_content_string, yes_or_no_instruction=private_matter_instruction)
+        # except Exception as e:
+        #     self.logger.error(f"Failed to generate private matter: {e}")
         return doc_extras
