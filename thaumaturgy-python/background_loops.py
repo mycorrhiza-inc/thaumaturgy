@@ -167,6 +167,10 @@ async def process_add_file_scraper(task: Task) -> None:
     try:
         error, result_file = await add_url_raw(file_url, metadata)
         if task.database_interact == DatabaseInteraction.insert:
+            logger.info("Adding file to the database in file addition step.")
+            assert (
+                False
+            ), "At this point with updates not working inserts shouldnt happen at the beginning of file processing."
             result_file = await upsert_full_file_to_db(
                 result_file, interact=task.database_interact
             )

@@ -88,43 +88,44 @@ async def upsert_full_file_to_db(
         return obj
     json_data_string = obj.model_dump_json()
     logger.info(json_data_string)
-    for _ in range(3):
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, data=json_data_string) as response:
-                response_code = response.status
-                if response_code == 200:
-                    try:
-                        response_json = await response.json()
-                        # Validate and cast to CompleteFileSchema
-                        logger.info("File uploaded to db")
-                        logger.info(response_json)
-                    except (ValueError, TypeError, KeyError) as e:
-                        print(f"Failed to parse JSON: {e}")
-                        raise Exception(f"Failed to parse JSON: {e}")
-                    id_str = response_json.get("id")
-                    if id_str is None:
-                        print(f"No id returned from the server")
-                        raise Exception(f"No id returned from the server")
-                    try:
-                        id = UUID(id_str)
-                    except Exception as e:
-                        print(f"Failed to parse UUID: {e}")
-                        raise Exception(f"Failed to parse UUID: {e}")
+    # for _ in range(3):
+    errors = []
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, data=json_data_string) as response:
+            response_code = response.status
+            if response_code == 200:
+                try:
+                    response_json = await response.json()
+                    # Validate and cast to CompleteFileSchema
+                    logger.info("File uploaded to db")
+                    logger.info(response_json)
+                except (ValueError, TypeError, KeyError) as e:
+                    print(f"Failed to parse JSON: {e}")
+                    raise Exception(f"Failed to parse JSON: {e}")
+                id_str = response_json.get("id")
+                if id_str is None:
+                    print(f"No id returned from the server")
+                    raise Exception(f"No id returned from the server")
+                try:
+                    id = UUID(id_str)
+                except Exception as e:
+                    print(f"Failed to parse UUID: {e}")
+                    raise Exception(f"Failed to parse UUID: {e}")
 
-                    assert id != UUID(
-                        "00000000-0000-0000-0000-000000000000"
-                    ), "Got Back null uuid from server."
-                    if interact == DatabaseInteraction.insert:
-                        assert (
-                            id != original_id
-                        ), "Identical ID returned from the server, this should be impossible if you are inserting a file."
-                    obj.id = id
-                    return obj
-                logger.info(f"Response code: {response_code}")
-                logger.info(f"Response body: {await response.text()}")
-        await asyncio.sleep(10)
+                assert id != UUID(
+                    "00000000-0000-0000-0000-000000000000"
+                ), "Got Back null uuid from server."
+                if interact == DatabaseInteraction.insert:
+                    assert (
+                        id != original_id
+                    ), "Identical ID returned from the server, this should be impossible if you are inserting a file."
+                obj.id = id
+                return obj
+            errorstring = f"Response code: {response_code}\nResponse body: {await response.text()}"
+            logger.error(errorstring)
+            errors.append(errorstring)
     raise Exception(
-        "Tried 5 times to commit file to DB and failed. TODO: SAVE AND BACKUP THE FILE TO REDIS OR SOMETHING IF THIS FAILS."
+        f"Tried to commit file to DB and failed. TODO: SAVE AND BACKUP THE FILE TO REDIS OR SOMETHING IF THIS FAILS. Encountered errors:\n{str(errors)}"
     )
 
 

@@ -29,13 +29,18 @@ def get_llm_from_model_str(model_name: Optional[str]):
     if model_name in ["llama-8b", "llama-3.1-8b-instant"]:
         actual_name = "llama-3.1-8b-instant"
         return Groq(model=actual_name, request_timeout=60.0, api_key=GROQ_API_KEY)
+    if model_name in ["llama-90b", "llama3.2-90b", "llama-3-90b", "llama90b"]:
+        return Fireworks(
+            model="accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
+            api_key=FIREWORKS_API_KEY,
+        )
     if model_name in [
         "llama-70b",
         "llama3-70b-8192",
         "llama-3.1-70b-versatile",
     ]:
-        actual_name = "llama-3.1-70b-versatile"
-        return Groq(model=actual_name, request_timeout=60.0, api_key=GROQ_API_KEY)
+        actual_name = "accounts/fireworks/models/llama-v3p1-70b-instruct"
+        return Fireworks(model=actual_name, api_key=GROQ_API_KEY)
     if model_name in ["llama-405b", "llama-3.1-405b-reasoning"]:
         actual_name = "accounts/fireworks/models/llama-v3p1-405b-instruct"
         return Fireworks(model=actual_name, api_key=FIREWORKS_API_KEY)
