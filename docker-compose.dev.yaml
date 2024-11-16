@@ -9,9 +9,6 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entryPoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-
-      - " -- traefik.http.routers.blog.tls.domains[0].main=example.com"
-      # - "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
       - "--certificatesresolvers.myresolver.acme.email=nvenner@protonmail.ch"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
       - "--providers.docker.constraints=Label(`traefik.namespace`,`thaumaturgy`)"
@@ -47,7 +44,6 @@ services:
       - "traefik.namespace=thaumaturgy"
       - "traefik.http.routers.thaumaturgy-python.rule=PathPrefix(`/v1/`) "
       - "traefik.http.routers.thaumaturgy-python.rule=Host(`thaum.kessler.xyz`) && (PathPrefix(`/v1/`) || pathprefix(`/schema/`))"
-      - traefik.http.routers.blog.tls.domains[0].main=thaum.kessler.xyz
       - "traefik.http.routers.thaumaturgy-python.entrypoints=websecure"
       - "traefik.http.routers.thaumaturgy-python.tls.certresolver=myresolver"
     command:
