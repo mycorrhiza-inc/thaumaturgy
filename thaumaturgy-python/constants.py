@@ -6,7 +6,7 @@ MOCK_DB_CONNECTION = False
 
 NULL_UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 
-KESSLER_API_URL = "https://api.kessler.xyz"
+KESSLER_API_URL = "http://apiarist.tail4a273.ts.net"
 
 DATALAB_API_KEY = os.environ["DATALAB_API_KEY"]
 FIREWORKS_EMBEDDING_URL = "https://api.fireworks.ai/inference/v1"

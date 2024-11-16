@@ -43,6 +43,7 @@ from util.file_io import S3FileManager
 # import base64
 
 from constants import (
+    KESSLER_API_URL,
     OS_TMPDIR,
     OS_HASH_FILEDIR,
     MOCK_DB_CONNECTION,
@@ -75,14 +76,14 @@ async def upsert_full_file_to_db(
     logger = default_logger
     original_id = copy(obj.id)
     if interact == DatabaseInteraction.insert:
-        url = f"https://api.kessler.xyz/v2/public/files/insert"
+        url = f"{KESSLER_API_URL}/v2/public/files/insert"
     elif interact == DatabaseInteraction.update:
         assert isinstance(obj.id, UUID)
         assert obj.id != UUID(
             "00000000-0000-0000-0000-000000000000"
         ), "Cannot update a file with a null uuid"
         id_str = str(obj.id)
-        url = f"https://api.kessler.xyz/v2/public/files/{id_str}"
+        url = f"{KESSLER_API_URL}/v2/public/files/{id_str}"
         logger.info(f"Hitting file update endpoint: {url}")
     else:
         return obj
