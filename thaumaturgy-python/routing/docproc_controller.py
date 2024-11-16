@@ -157,7 +157,7 @@ class DocumentProcesserController(Controller):
         task = create_task(
             actual_data,
             priority=priority,
-            database_interaction=DatabaseInteraction.insert_later,
+            database_interaction=DatabaseInteraction.insert,
             kwargs={},
             task_type=TaskType.add_file_scraper,
         )
@@ -180,7 +180,7 @@ class DocumentProcesserController(Controller):
             task = create_task(
                 actual_data,
                 priority=priority,
-                database_interaction=DatabaseInteraction.insert_later,
+                database_interaction=DatabaseInteraction.insert,
                 kwargs={},
                 task_type=TaskType.add_file_scraper,
             )
