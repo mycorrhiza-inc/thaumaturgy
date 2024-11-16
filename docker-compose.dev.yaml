@@ -14,6 +14,7 @@ services:
       # - "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
       - "--certificatesresolvers.myresolver.acme.email=nvenner@protonmail.ch"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--providers.docker.constraints=Label(`traefik.namespace`,`thaumaturgy`)"
     expose:
       - 80
       - 443
@@ -43,6 +44,7 @@ services:
       - ${VOLUMES_DIRECTORY:-./volumes}/files:/files
     labels:
       - "traefik.enable=true"
+      - "traefik.namespace=thaumaturgy"
       - "traefik.http.routers.thaumaturgy-python.rule=PathPrefix(`/v1/`) "
       - "traefik.http.routers.thaumaturgy-python.rule=Host(`thaum.kessler.xyz`) && (PathPrefix(`/v1/`) || pathprefix(`/schema/`))"
       - traefik.http.routers.blog.tls.domains[0].main=thaum.kessler.xyz
