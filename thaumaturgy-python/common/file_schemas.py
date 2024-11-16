@@ -49,8 +49,8 @@ class DocProcStage(BaseModel):
     docproc_stage: DocumentStatus
     is_errored: bool
     is_completed: bool
-    error_msg: str = ""
-    error_stacktrace: str = ""
+    processing_error_msg: str = ""
+    database_error_msg: str = ""
 
 
 NEWDOCSTAGE = DocProcStage(
@@ -86,6 +86,7 @@ class FileMetadataSchema(BaseModel):
 
 class CompleteFileSchema(BaseModel):
     id: UUID = UUID("00000000-0000-0000-0000-000000000000")
+    verified: bool
     extension: str
     lang: str
     name: str
