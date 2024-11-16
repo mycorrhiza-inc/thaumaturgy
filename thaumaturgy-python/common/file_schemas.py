@@ -86,7 +86,7 @@ class FileMetadataSchema(BaseModel):
 
 class CompleteFileSchema(BaseModel):
     id: UUID = UUID("00000000-0000-0000-0000-000000000000")
-    verified: bool
+    verified: bool = False
     extension: str
     lang: str
     name: str
