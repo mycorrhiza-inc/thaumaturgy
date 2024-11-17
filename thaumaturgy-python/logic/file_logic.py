@@ -122,7 +122,7 @@ async def upsert_full_file_to_db(
                     ), "Identical ID returned from the server, this should be impossible if you are inserting a file."
                 obj.id = id
                 return obj
-            errorstring = f"Response code: {response_code}\nResponse body: {await response.text()}"
+            errorstring = f"Response URL: {url}\nTruncated Response Data: {json_data_string[:200]}\nResponse code: {response_code}\nResponse body: {await response.text()}"
             logger.error(errorstring)
             errors.append(errorstring)
     raise Exception(
