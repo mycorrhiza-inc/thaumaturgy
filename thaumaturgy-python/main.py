@@ -9,7 +9,7 @@ from litestar.status_codes import HTTP_500_INTERNAL_SERVER_ERROR
 
 from litestar.di import Provide
 
-from common.llm_utils import KeLLMUtils
+from common.llm_utils import KeLLMUtils, ModelName
 from util.logging import logging_config
 
 from routing.docproc_controller import DocumentProcesserController
@@ -23,7 +23,7 @@ from constants import FIREWORKS_API_KEY, GROQ_API_KEY, OCTOAI_API_KEY, OPENAI_AP
 logger = logging.getLogger(__name__)
 
 
-def run_startup_env_checks():
+async def run_startup_env_checks():
     # Apparently this catches both none and "", stil spooky dynamic type stuff
     if not OPENAI_API_KEY:
         raise EnvironmentError(
@@ -41,11 +41,12 @@ def run_startup_env_checks():
         raise EnvironmentError(
             "OCTOAI_API_KEY environment variable is not set. Please set it to use OctoAI services."
         )
-    test_medium_llm = KeLLMUtils("llama-70b")
+    test_medium_llm = KeLLMUtils(ModelName.llama_70b)
+    result = await test_medium_llm.simple_question("Did this test work?")
 
 
 async def on_startup() -> None:
-    run_startup_env_checks()
+    await run_startup_env_checks()
     initialize_background_loops()
 
 

@@ -226,6 +226,13 @@ class KeLLMUtils:
         str_response = remove_prefixes(str_response)
         return KeChatMessage(role=ChatRole.assistant, content=str_response)
 
+    async def simple_question(self, content: str) -> str:
+        history = [
+            KeChatMessage(content=content, role=ChatRole.user),
+        ]
+        completion = await self.achat(history)
+        return completion.content
+
     async def simple_summary_truncate(
         self, content: str, truncate_chars: int = 5000
     ) -> str:
