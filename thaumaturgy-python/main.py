@@ -9,6 +9,7 @@ from litestar.status_codes import HTTP_500_INTERNAL_SERVER_ERROR
 
 from litestar.di import Provide
 
+from common.llm_utils import KeLLMUtils
 from util.logging import logging_config
 
 from routing.docproc_controller import DocumentProcesserController
@@ -40,6 +41,7 @@ def run_startup_env_checks():
         raise EnvironmentError(
             "OCTOAI_API_KEY environment variable is not set. Please set it to use OctoAI services."
         )
+    test_medium_llm = KeLLMUtils("llama-70b")
 
 
 async def on_startup() -> None:

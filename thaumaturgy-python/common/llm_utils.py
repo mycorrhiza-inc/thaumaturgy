@@ -23,31 +23,66 @@ from llama_index.llms.fireworks import Fireworks
 from constants import OPENAI_API_KEY, OCTOAI_API_KEY, GROQ_API_KEY, FIREWORKS_API_KEY
 
 
-def get_llm_from_model_str(model_name: Optional[str]):
+class ModelName(Enum):
+    llama_8b = "llama-8b"
+    llama_70b = "llama-70b"
+    llama_90b = "llama-90b"
+    llama_405b = "llama-405b"
+    gpt_4o = "gpt-4o"
+
+
+def get_llm_from_model_name(model_name: Optional[ModelName]):
     if model_name is None:
-        model_name = "llama-405b"
-    if model_name in ["llama-8b", "llama-3.1-8b-instant"]:
-        actual_name = "llama-3.1-8b-instant"
-        return Groq(model=actual_name, request_timeout=60.0, api_key=GROQ_API_KEY)
-    if model_name in ["llama-90b", "llama3.2-90b", "llama-3-90b", "llama90b"]:
-        return Fireworks(
-            model="accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
-            api_key=FIREWORKS_API_KEY,
-        )
-    if model_name in [
-        "llama-70b",
-        "llama3-70b-8192",
-        "llama-3.1-70b-versatile",
-    ]:
-        actual_name = "accounts/fireworks/models/llama-v3p1-70b-instruct"
-        return Fireworks(model=actual_name, api_key=GROQ_API_KEY)
-    if model_name in ["llama-405b", "llama-3.1-405b-reasoning"]:
-        actual_name = "accounts/fireworks/models/llama-v3p1-405b-instruct"
-        return Fireworks(model=actual_name, api_key=FIREWORKS_API_KEY)
-    if model_name in ["gpt-4o"]:
-        return OpenAI(model=model_name, request_timeout=60.0, api_key=OPENAI_API_KEY)
-    else:
+        model_name = ModelName.llama_405b
+
+    match model_name:
+        case ModelName.llama_8b:
+            return Groq(
+                model="llama-3.1-8b-instant", request_timeout=60.0, api_key=GROQ_API_KEY
+            )
+        case ModelName.llama_90b:
+            return Fireworks(
+                model="accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
+                api_key=FIREWORKS_API_KEY,
+            )
+        case ModelName.llama_70b:
+            return Fireworks(
+                model="accounts/fireworks/models/llama-v3p1-70b-instruct",
+                api_key=FIREWORKS_API_KEY,
+            )
+        case ModelName.llama_405b:
+            return Fireworks(
+                model="accounts/fireworks/models/llama-v3p1-405b-instruct",
+                api_key=FIREWORKS_API_KEY,
+            )
+        case ModelName.gpt_4o:
+            return OpenAI(model="gpt-4o", request_timeout=60.0, api_key=OPENAI_API_KEY)
+
+
+def get_model_name_from_str(model_name_str: Optional[str]) -> ModelName:
+    if model_name_str is None:
+        return ModelName.llama_405b
+
+    model_map = {
+        "llama-8b": ModelName.llama_8b,
+        "llama-3.1-8b-instant": ModelName.llama_8b,
+        "llama-90b": ModelName.llama_90b,
+        "llama3.2-90b": ModelName.llama_90b,
+        "llama-3-90b": ModelName.llama_90b,
+        "llama90b": ModelName.llama_90b,
+        "llama70b": ModelName.llama_70b,
+        "llama-70b": ModelName.llama_70b,
+        "llama3-70b-8192": ModelName.llama_70b,
+        "llama-3.1-70b-versatile": ModelName.llama_70b,
+        "llama-405b": ModelName.llama_405b,
+        "llama-3.1-405b-reasoning": ModelName.llama_405b,
+        "gpt-4o": ModelName.gpt_4o,
+    }
+
+    if model_name_str not in model_map:
         raise Exception("Model String Invalid or Not Supported")
+
+    return model_map[model_name_str]
 
 
 valid_model_names = [
