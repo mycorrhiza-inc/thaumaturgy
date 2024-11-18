@@ -222,6 +222,7 @@ async def add_file_raw(
     logger.info("Attempting to save data to file")
     result = file_manager.save_filepath_to_hash(tmp_filepath, OS_HASH_FILEDIR)
     (filehash, filepath) = result
+    file_obj.hash = filehash
 
     os.remove(tmp_filepath)
 
