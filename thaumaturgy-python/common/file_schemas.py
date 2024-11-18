@@ -80,8 +80,10 @@ def getListAuthors(authorinfo_list: List[AuthorInformation]) -> List[str]:
     return [author.author_name for author in authorinfo_list]
 
 
-class FileMetadataSchema(BaseModel):
-    json_obj: Dict[str, Any] = {}
+class ConversationInformation(BaseModel):
+    id: UUID = UUID("00000000-0000-0000-0000-000000000000")
+    docket_id: str
+    state: str
 
 
 class CompleteFileSchema(BaseModel):
@@ -97,6 +99,7 @@ class CompleteFileSchema(BaseModel):
     stage: DocProcStage = NEWDOCSTAGE
     extra: FileGeneratedExtras = FileGeneratedExtras()
     authors: List[AuthorInformation] = []
+    conversation: ConversationInformation
 
     def display_llm_noextras_beyond_summary(self) -> str:
         metadata = self.display_trimmed_mdata()

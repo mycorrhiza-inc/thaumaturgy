@@ -1,7 +1,7 @@
 from uuid import UUID
 from common.misc_schemas import QueryData
 
-from common.file_schemas import DocumentStatus
+from common.file_schemas import ConversationInformation, DocumentStatus
 
 import logging
 from logic.file_logic import (
@@ -165,6 +165,9 @@ async def process_add_file_scraper(task: Task) -> None:
         "author_email": scraper_obj.author_individual_email,
         "item_number": scraper_obj.item_number,
     }
+    convo_info = ConversationInformation(
+        state=scraper_obj.state, docket_id=scraper_obj.docket_id
+    )
     file_object = CompleteFileSchema(
         name=scraper_obj.name,
         hash="",
@@ -172,6 +175,7 @@ async def process_add_file_scraper(task: Task) -> None:
         mdata=metadata,
         extension=filetype,
         lang="en",
+        conversation=convo_info,
     )
     try:
         error, result_file = await add_url_raw(file_url, file_object)

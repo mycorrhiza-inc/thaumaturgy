@@ -58,6 +58,7 @@ class ScraperInfo(BaseModel):
     published_date: str = ""
     internal_source_name: str = ""
     docket_id: str = ""
+    state: str = ""
     author_individual: str = ""
     author_individual_email: str = ""
     author_organisation: str = ""

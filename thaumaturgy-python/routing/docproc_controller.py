@@ -63,6 +63,7 @@ class NyPUCScraperSchema(BaseModel):
 
 def convert_ny_to_scraper_info(nypuc_scraper: NyPUCScraperSchema) -> ScraperInfo:
     return ScraperInfo(
+        state="ny",
         file_url=nypuc_scraper.url or "",
         name=nypuc_scraper.name or "",
         published_date=nypuc_scraper.date_filed or "",
