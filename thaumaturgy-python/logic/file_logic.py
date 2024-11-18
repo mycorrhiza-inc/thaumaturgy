@@ -83,7 +83,7 @@ async def upsert_full_file_to_db(
             "00000000-0000-0000-0000-000000000000"
         ), "Cannot update a file with a null uuid"
         id_str = str(obj.id)
-        url = f"{KESSLER_API_URL}/v2/public/files/{id_str}"
+        url = f"{KESSLER_API_URL}/v2/public/files/{id_str}/update"
         logger.info(f"Hitting file update endpoint: {url}")
     else:
         return obj
