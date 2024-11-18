@@ -26,7 +26,7 @@ class ExtraGenerator:
 
         doc_extras = FileGeneratedExtras()
         try:
-            doc_extras.summary = await self.medium_llm.simple_summary_truncate(
+            doc_extras.summary = await self.big_llm.simple_summary_truncate(
                 english_text
             )
             short_sum_instruct = "Take this long summary and condense it into a 1-2 sentance short summary."
