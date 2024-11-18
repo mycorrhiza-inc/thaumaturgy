@@ -150,6 +150,7 @@ async def process_add_file_scraper(task: Task) -> None:
     if filetype is None or filetype == "":
         filetype = "pdf"
     file_url = scraper_obj.file_url
+
     metadata = {
         "docket_id": scraper_obj.docket_id,
         "url": scraper_obj.file_url,
@@ -164,8 +165,16 @@ async def process_add_file_scraper(task: Task) -> None:
         "author_email": scraper_obj.author_individual_email,
         "item_number": scraper_obj.item_number,
     }
+    file_object = CompleteFileSchema(
+        name=scraper_obj.name,
+        hash="",
+        is_private=False,
+        mdata=metadata,
+        extension=filetype,
+        lang="en",
+    )
     try:
-        error, result_file = await add_url_raw(file_url, metadata)
+        error, result_file = await add_url_raw(file_url, file_object)
         if task.database_interact == DatabaseInteraction.insert:
             logger.info("Adding file to the database in file addition step.")
             # assert (

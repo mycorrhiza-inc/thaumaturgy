@@ -132,53 +132,64 @@ async def upsert_full_file_to_db(
 
 async def add_url_raw(
     file_url: str,
-    metadata: dict,
+    file_obj: CompleteFileSchema,
     check_duplicate: bool = False,
 ) -> Tuple[Optional[str], CompleteFileSchema]:
     download_dir = OS_TMPDIR / Path("downloads")
     result_path = await download_file(file_url, download_dir)
-    doctype = metadata.get("extension")
+    doctype = file_obj.extension
     if doctype is None or doctype == "":
-        doctype = result_path.suffix.lstrip(".")
-    return await add_file_raw(result_path, metadata, check_duplicate)
+        file_obj.extension = result_path.suffix.lstrip(".")
+    return await add_file_raw(result_path, file_obj, check_duplicate)
+
+
+async def split_author_field_into_authordata(
+    author_str: str, llm: KeLLMUtils
+) -> List[AuthorInformation]:
+    logger = default_logger
+    if author_str == "":
+        return []
+    # If string has no commas return the string as a singleton author information, not implementing since it might be a ny specific thing.
+
+    # Use LLMs to split out the code for stuff relating to the thing.
+    command = 'Take the list of organisations and return a json list of the authors like so ["Organisation 1", "Organization 2, Inc"]. Dont return anything except a json parsable list.'
+    try:
+        json_authorlist = await llm.simple_instruct(author_str, command)
+        if json_authorlist in ["", "{}", "[]"]:
+            raise Exception(
+                "Returned an empty author list dispite author data being included."
+            )
+
+        author_list = json.loads(json_authorlist)
+        if author_list is None or author_list == []:
+            raise Exception(
+                "Returned an empty author list dispite author data being included."
+            )
+    except Exception as e:
+        logger.error(
+            f'LLM encountered some error or produced unparsable data, splitting on "," as a backup: {e}',
+        )
+        author_list = author_str.split(",")
+
+    author_info_list = [
+        AuthorInformation(
+            author_id=UUID("00000000-0000-0000-0000-000000000000"),
+            author_name=author,
+        )
+        for author in author_list
+    ]
+    return author_info_list
 
 
 async def add_file_raw(
     tmp_filepath: Path,
-    metadata: dict,
+    file_obj: CompleteFileSchema,
     check_duplicate: bool = False,
 ) -> Tuple[Optional[str], CompleteFileSchema]:
     logger = default_logger
     file_manager = S3FileManager(logger=logger)
     # This step doesnt need anything super sophisticated, and also has contingecnices for failed requests, so retries are kinda unecessary
     small_llm = KeLLMUtils(ModelName.llama_8b, slow_retry=False)
-
-    async def split_author_field_into_authordata(
-        author_str: str,
-    ) -> List[AuthorInformation]:
-        if author_str == "":
-            return []
-        # If string has no commas return the string as a singleton author information, not implementing since it might be a ny specific thing.
-
-        # Use LLMs to split out the code for stuff relating to the thing.
-        command = 'Take the list of organisations and return a json list of the authors like so ["Organisation 1", "Organization 2, Inc"]. Dont return anything except a json parsable list.'
-        try:
-            json_authorlist = await small_llm.simple_instruct(author_str, command)
-            author_list = json.loads(json_authorlist)
-        except Exception as e:
-            logger.error(
-                f'LLM encountered some error or produced unparsable data, splitting on "," as a backup: {e}',
-            )
-            author_list = author_str.split(",")
-
-        author_info_list = [
-            AuthorInformation(
-                author_id=UUID("00000000-0000-0000-0000-000000000000"),
-                author_name=author,
-            )
-            for author in author_list
-        ]
-        return author_info_list
 
     def validate_metadata_mutable(metadata: dict):
         if metadata.get("lang") is None or metadata.get("lang") == "":
@@ -206,7 +217,7 @@ async def add_file_raw(
         return metadata
 
     # This assignment shouldnt be necessary, but I hate mutating variable bugs.
-    metadata = validate_metadata_mutable(metadata)
+    file_obj.mdata = validate_metadata_mutable(file_obj.mdata)
 
     logger.info("Attempting to save data to file")
     result = file_manager.save_filepath_to_hash(tmp_filepath, OS_HASH_FILEDIR)
@@ -219,21 +230,17 @@ async def add_file_raw(
             raise Exception("File Already exists in DB, erroring out.")
     # FIXME: RENEABLE BACKUPS AT SOME POINT
     # file_manager.backup_metadata_to_hash(metadata, filehash)
-    authors_info = await split_author_field_into_authordata(metadata.get("authors", ""))
-    authors_strings = getListAuthors(authors_info)
-    metadata["authors"] = authors_strings
-    new_file = CompleteFileSchema(
-        id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
-        name=metadata.get("title", "") or "",
-        extension=metadata.get("extension", "") or "",
-        lang=metadata.get("lang", "") or "",
-        hash=filehash,
-        authors=authors_info,
-        mdata=metadata,
-        is_private=False,
-    )
+    author_names = file_obj.mdata.get("author")
+    if author_names is None:
+        author_names = file_obj.mdata.get("authors")
+    if author_names is None:
+        author_names = ""
 
-    return None, new_file
+    authors_info = await split_author_field_into_authordata(author_names, small_llm)
+    authors_strings = getListAuthors(authors_info)
+    file_obj.mdata["authors"] = authors_strings
+
+    return None, file_obj
 
 
 async def process_file_raw(
