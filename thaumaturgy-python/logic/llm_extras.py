@@ -3,7 +3,7 @@ from common.file_schemas import (
     FileGeneratedExtras,
     get_english_text_from_fileschema,
 )
-from common.llm_utils import KeLLMUtils, get_llm_from_model_str
+from common.llm_utils import KeLLMUtils, ModelName, get_llm_from_model_name
 import logging
 
 default_logger = logging.getLogger(__name__)
@@ -11,9 +11,9 @@ default_logger = logging.getLogger(__name__)
 
 class ExtraGenerator:
     def __init__(self):
-        self.big_llm = KeLLMUtils(get_llm_from_model_str("llama-405b"))
-        self.tiny_llm = KeLLMUtils(get_llm_from_model_str("llama-8b"))
-        self.medium_llm = KeLLMUtils(get_llm_from_model_str("llama-70b"))
+        self.big_llm = KeLLMUtils(ModelName.llama_405b)
+        self.tiny_llm = KeLLMUtils(ModelName.llama_8b)
+        self.medium_llm = KeLLMUtils(ModelName.llama_70b)
         self.logger = default_logger
 
     async def generate_extra_from_file(

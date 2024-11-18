@@ -186,14 +186,9 @@ def force_conform_chat(chat_history: List[Dict[str, str]]) -> List[Dict[str, str
 
 
 class KeLLMUtils:
-    def __init__(self, llm: Union[str, Any], slow_retry: bool = False) -> None:
-        if llm == "":
-            llm = None
-        if llm is None:
-            llm = "llama-405b"
-        if isinstance(llm, str):
-            llm = get_llm_from_model_str(llm)
-        self.llm = llm
+    def __init__(self, llm: Optional[ModelName], slow_retry: bool = False) -> None:
+        llm_callable = get_llm_from_model_name(llm)
+        self.llm = llm_callable
         self.request_tries = (
             1 + slow_retry * 2
         )  # Only try once if slow_retry is false, else try 3 times

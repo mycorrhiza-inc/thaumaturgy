@@ -13,7 +13,7 @@ from common.file_schemas import (
 )
 from common.niclib import download_file
 from common.task_schema import DatabaseInteraction, Task
-from common.llm_utils import KeLLMUtils
+from common.llm_utils import KeLLMUtils, ModelName
 import os
 from pathlib import Path
 
@@ -151,7 +151,7 @@ async def add_file_raw(
     logger = default_logger
     file_manager = S3FileManager(logger=logger)
     # This step doesnt need anything super sophisticated, and also has contingecnices for failed requests, so retries are kinda unecessary
-    small_llm = KeLLMUtils("llama-8b", slow_retry=False)
+    small_llm = KeLLMUtils(ModelName.llama_8b, slow_retry=False)
 
     async def split_author_field_into_authordata(
         author_str: str,
@@ -256,7 +256,7 @@ async def process_file_raw(
     logger.info(obj)
     current_stage = DocumentStatus(obj.stage.docproc_stage)
     llm = KeLLMUtils(
-        "llama-70b", slow_retry=True
+        llm=ModelName.llama_70b, slow_retry=True
     )  # Maybe replace with something cheeper.
     extra_gen = ExtraGenerator()
     mdextract = MarkdownExtractor(logger, OS_TMPDIR, priority=priority)
