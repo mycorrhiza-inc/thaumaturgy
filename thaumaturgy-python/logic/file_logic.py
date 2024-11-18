@@ -237,6 +237,7 @@ async def add_file_raw(
         author_names = ""
 
     authors_info = await split_author_field_into_authordata(author_names, small_llm)
+    file_obj.authors = authors_info
     authors_strings = getListAuthors(authors_info)
     file_obj.mdata["authors"] = authors_strings
 
@@ -269,8 +270,6 @@ async def process_file_raw(
     mdextract = MarkdownExtractor(logger, OS_TMPDIR, priority=priority)
     file_manager = S3FileManager(logger=logger)
     text = {}
-    text_list = []
-    doc_metadata = obj.mdata
     # Move back to stage 1 after all files are in s3 to save bandwith
     file_path = file_manager.generate_local_filepath_from_hash(obj.hash)
     if file_path is None:
