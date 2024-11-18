@@ -366,10 +366,10 @@ async def process_file_raw(
             logger.info(current_stage.value)
             obj.stage = DocProcStage(
                 pg_stage=PGStage.COMPLETED,
-                error_msg="",
-                error_stacktrace="",
+                processing_error_msg="",
+                database_error_msg="",
                 docproc_stage=current_stage,
-                is_errored=True,
+                is_errored=False,
                 is_completed=True,
             )
             return None, obj
@@ -400,8 +400,7 @@ async def process_file_raw(
             logger.error(tb)
             obj.stage = DocProcStage(
                 pg_stage=PGStage.ERRORED,
-                error_msg=str(e),
-                error_stacktrace=str(tb),
+                processing_error_msg="Encountered Processing Error: " + str(e),
                 docproc_stage=current_stage,
                 is_errored=True,
                 is_completed=True,

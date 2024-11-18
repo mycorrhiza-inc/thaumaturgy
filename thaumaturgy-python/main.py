@@ -1,3 +1,4 @@
+from asyncio import run
 import logging
 import traceback
 
@@ -15,10 +16,34 @@ from routing.docproc_controller import DocumentProcesserController
 
 from background_loops import initialize_background_loops
 
+
+from constants import FIREWORKS_API_KEY, GROQ_API_KEY, OCTOAI_API_KEY, OPENAI_API_KEY
+
 logger = logging.getLogger(__name__)
 
 
+def run_startup_env_checks():
+    # Apparently this catches both none and "", stil spooky dynamic type stuff
+    if not OPENAI_API_KEY:
+        raise EnvironmentError(
+            "OPENAI_API_KEY environment variable is not set. Please set it to use OpenAI services."
+        )
+    if not FIREWORKS_API_KEY:
+        raise EnvironmentError(
+            "FIREWORKS_API_KEY environment variable is not set. Please set it to use Fireworks AI services."
+        )
+    if not GROQ_API_KEY:
+        raise EnvironmentError(
+            "GROQ_API_KEY environment variable is not set. Please set it to use Groq services."
+        )
+    if not OCTOAI_API_KEY:
+        raise EnvironmentError(
+            "OCTOAI_API_KEY environment variable is not set. Please set it to use OctoAI services."
+        )
+
+
 async def on_startup() -> None:
+    run_startup_env_checks()
     initialize_background_loops()
 
 
