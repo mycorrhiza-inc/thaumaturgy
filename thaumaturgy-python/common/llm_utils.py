@@ -37,8 +37,9 @@ def get_llm_from_model_name(model_name: Optional[ModelName]):
 
     match model_name:
         case ModelName.llama_8b:
-            return Groq(
-                model="llama-3.1-8b-instant", request_timeout=60.0, api_key=GROQ_API_KEY
+            return Fireworks(
+                model="accounts/fireworks/models/llama-v3p1-8b-instruct",
+                api_key=FIREWORKS_API_KEY,
             )
         case ModelName.llama_90b:
             return Fireworks(
