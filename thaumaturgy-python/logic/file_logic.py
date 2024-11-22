@@ -211,7 +211,9 @@ async def add_file_raw(
     logger = default_logger
     file_manager = S3FileManager(logger=logger)
     # This step doesnt need anything super sophisticated, and also has contingecnices for failed requests, so retries are kinda unecessary
-    small_llm = KeLLMUtils(ModelName.llama_8b, slow_retry=False)
+    small_llm = KeLLMUtils(
+        ModelName.llama_70b, slow_retry=False
+    )  # Replace with something bigger, got bad results with splitting the author fields
 
     def validate_metadata_mutable(metadata: dict):
         if metadata.get("lang") is None or metadata.get("lang") == "":
@@ -259,6 +261,7 @@ async def add_file_raw(
     if author_names is None:
         author_names = ""
 
+    # TODO: Add examples to this prompt for better author splitting results.
     authors_info = await split_author_field_into_authordata(author_names, small_llm)
     file_obj.authors = authors_info
     authors_strings = getListAuthors(authors_info)
@@ -297,6 +300,28 @@ async def process_file_raw(
     file_path = file_manager.generate_local_filepath_from_hash(obj.hash)
     if file_path is None:
         raise Exception(f"File Must Not exist for hash {obj.hash}")
+
+    def process_stage_handle_extension():
+        valid_extension = None
+        try:
+            valid_extension = KnownFileExtension(obj.extension)
+        except Exception as e:
+            logger.error(
+                f"Invalid File Extension, this should have never been insereted into the db, trying to fix now: {obj.extension}, {e}"
+            )
+            valid_extension, valid_extension_str = validate_and_rectify_file_extension(
+                obj.extension
+            )
+        if valid_extension is None:
+            raise Exception(
+                f"Unable to get proper file extension even after trying to rectify, please fix: {obj.extension}"
+            )
+        obj.extension = valid_extension.value
+        if valid_extension == KnownFileExtension.xlsx:
+            #
+            return DocumentStatus.completed
+        # Every other file on the valid extension list can be processed to return stage 1
+        return DocumentStatus.stage1
 
     # TODO: Replace with pydantic validation
 
@@ -390,7 +415,8 @@ async def process_file_raw(
 
         # await the json if async
 
-    while True:
+    # Better then a while loop that might run forever, this loop should absolutely end after 1000 iterations
+    for i in range(0, 1000):
         if docstatus_index(current_stage) >= docstatus_index(stop_at):
             logger.info(current_stage.value)
             obj.stage = DocProcStage(
@@ -406,7 +432,8 @@ async def process_file_raw(
             match current_stage:
                 case DocumentStatus.unprocessed:
                     # Mark that an attempt to process the document starting at stage 1
-                    current_stage = DocumentStatus.stage1
+                    # TODO: Add new stage for file validation, now just using unprocessed.
+                    current_stage = process_stage_handle_extension()
                 case DocumentStatus.stage1:
                     current_stage = await process_stage_one()
                 case DocumentStatus.stage2:
@@ -435,3 +462,6 @@ async def process_file_raw(
                 is_completed=True,
             )
             return str(e), obj
+    raise Exception(
+        "Congradulations, encountered unreachable code after an infinite loop in processing a single document in file logic."
+    )
