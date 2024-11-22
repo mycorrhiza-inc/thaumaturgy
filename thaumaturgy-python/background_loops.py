@@ -8,6 +8,7 @@ from logic.file_logic import (
     add_url_raw,
     process_file_raw,
     upsert_full_file_to_db,
+    validate_and_rectify_file_extension,
 )
 import asyncio
 import redis
@@ -149,12 +150,15 @@ async def process_add_file_scraper(task: Task) -> None:
     filetype = scraper_obj.file_type
     if filetype is None or filetype == "":
         filetype = "pdf"
+    validated_filetype, file_extension_string = validate_and_rectify_file_extension(
+        filetype
+    )
     file_url = scraper_obj.file_url
 
     metadata = {
         "docket_id": scraper_obj.docket_id,
         "url": scraper_obj.file_url,
-        "extension": filetype,
+        "extension": file_extension_string,
         "lang": "en",
         "title": scraper_obj.name,
         "source": scraper_obj.internal_source_name,
@@ -173,7 +177,7 @@ async def process_add_file_scraper(task: Task) -> None:
         hash="",
         is_private=False,
         mdata=metadata,
-        extension=filetype,
+        extension=file_extension_string,
         lang="en",
         conversation=convo_info,
     )
