@@ -11,7 +11,7 @@ class QueryData(BaseModel):
     match_metadata: Optional[dict] = None
 
 
-class KnownFileExtension(Enum, str):
+class KnownFileExtension(str, Enum):
     pdf = "pdf"
     docx = "docx"
     doc = "doc"
