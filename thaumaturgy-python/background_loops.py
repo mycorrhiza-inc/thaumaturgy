@@ -154,20 +154,21 @@ async def process_add_file_scraper(task: Task) -> None:
         filetype
     )
     file_url = scraper_obj.file_url
+    fixed_docket_id = scraper_obj.docket_id.strip().upper()
 
     metadata = {
-        "docket_id": scraper_obj.docket_id,
-        "url": scraper_obj.file_url,
+        "docket_id": fixed_docket_id,
+        "url": scraper_obj.file_url.strip(),
         "extension": file_extension_string,
         "lang": "en",
-        "title": scraper_obj.name,
-        "source": scraper_obj.internal_source_name,
-        "date": scraper_obj.published_date,
-        "file_class": scraper_obj.file_class,
-        "author_organisation": scraper_obj.author_organisation,
-        "author": scraper_obj.author_organisation,
-        "author_email": scraper_obj.author_individual_email,
-        "item_number": scraper_obj.item_number,
+        "title": scraper_obj.name.strip(),
+        "source": scraper_obj.internal_source_name.strip(),
+        "date": scraper_obj.published_date.strip(),
+        "file_class": scraper_obj.file_class.strip(),
+        "author_organisation": scraper_obj.author_organisation.strip(),
+        "author": scraper_obj.author_organisation.strip(),
+        "author_email": scraper_obj.author_individual_email.strip(),
+        "item_number": scraper_obj.item_number.strip(),
     }
     convo_info = ConversationInformation(
         state=scraper_obj.state, docket_id=scraper_obj.docket_id
