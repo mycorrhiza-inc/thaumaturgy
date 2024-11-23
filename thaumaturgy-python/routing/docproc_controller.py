@@ -172,12 +172,10 @@ class DocumentProcesserController(Controller):
         self,
         data: List[NyPUCScraperSchema],
         priority: bool,
-        docket_id: str = Parameter(title="Docket ID", description="Docket ID"),
     ) -> List[Task]:
         tasklist: List[Task] = []
         for data_instance in data:
             actual_data = convert_ny_to_scraper_info(data_instance)
-            actual_data.docket_id = docket_id
             task = create_task(
                 actual_data,
                 priority=priority,
