@@ -171,7 +171,7 @@ class DocumentProcesserController(Controller):
     async def process_nypuc_scraped_document_handler_list(
         self,
         data: List[NyPUCScraperSchema],
-        priority: bool,
+        priority: bool = False,
     ) -> List[Task]:
         tasklist: List[Task] = []
         for data_instance in data:
