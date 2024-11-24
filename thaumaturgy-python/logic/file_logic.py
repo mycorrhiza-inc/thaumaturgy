@@ -408,6 +408,9 @@ async def process_file_raw(
         return DocumentStatus.embeddings_completed
 
     async def create_llm_extras():
+        assert (
+            False
+        ), "LLM Extras Deemed too expensive to do now. Consider at a later time once all documents are initally in"
         extras = await extra_gen.generate_extra_from_file(obj)
         obj.extra = extras
 
