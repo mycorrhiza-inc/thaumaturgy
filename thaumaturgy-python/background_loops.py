@@ -56,7 +56,8 @@ async def main_processing_loop() -> None:
     )
     # REMOVE FOR PERSIST QUEUES ACROSS RESTARTS:
     #
-    clear_file_queue(redis_client=redis_client)
+    # FML Forgetting to uncomment this line cost around 8 hours of work.
+    # clear_file_queue(redis_client=redis_client)
     default_logger.info("Starting the daemon processes docs in the queue.")
 
     async def activity():
