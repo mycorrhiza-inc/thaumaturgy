@@ -22,7 +22,6 @@ from util.redis_utils import (
 import traceback
 
 from constants import (
-    REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE,
     REDIS_HOST,
     REDIS_PORT,
     REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS,
@@ -70,6 +69,7 @@ async def main_processing_loop() -> None:
         # put here for safety
         main_processing_loop_enabled = False
         if not main_processing_loop_enabled:
+            default_logger.info("process loop is disabled")
             await asyncio.sleep(2)
             return None
         if concurrent_docs >= max_concurrent_docs:
@@ -84,6 +84,7 @@ async def main_processing_loop() -> None:
             return None
 
         if pull_obj is None:
+            default_logger.info("found no documents")
             await asyncio.sleep(2)
             return None
         try:
