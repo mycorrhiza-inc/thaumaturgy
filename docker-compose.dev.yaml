@@ -28,6 +28,9 @@ services:
     volumes:
       - ./frpc.toml:/etc/frp/frpc.toml
   thaumaturgy-python:
+    extra_hosts:
+      - "api.kessler.xyz:146.190.116.184"
+      - "marker.kessler.xyz:209.38.71.2"
     build:
       context: ./thaumaturgy-python/
       dockerfile: ./Dockerfile
@@ -62,6 +65,31 @@ services:
       endpoint_mode: dnsrr
     expose:
       - 5505
+  #        2024-11-25 19:27:39,863 - background_loops - ERROR - Cannot connect to host api.kessler.xyz:443 ssl:default [None]
+  # thaumaturgy-python-4  | 2024-11-25 19:27:39,863 - background_loops - ERROR - Traceback (most recent call last):
+  # thaumaturgy-python-4  |   File "/usr/local/lib/python3.12/site-packages/aiohttp/resolver.py", line 104, in resolve
+  # thaumaturgy-python-4  |     resp = await self._resolver.getaddrinfo(
+  # thaumaturgy-python-4  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  # thaumaturgy-python-4  | aiodns.error.DNSError: (12, 'Timeout while contacting DNS servers')
+  # thaumaturgy-python-4  |
+  # thaumaturgy-python-4  | The above exception was the direct cause of the following exception:
+  # thaumaturgy-python-4  |
+  # thaumaturgy-python-4  | Traceback (most recent call last):
+  # thaumaturgy-python-4  |   File "/usr/local/lib/python3.12/site-packages/aiohttp/connector.py", line 1301, in _create_direct_connection
+  # thaumaturgy-python-4  |     hosts = await self._resolve_host(host, port, traces=traces)
+  # thaumaturgy-python-4  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  # thaumaturgy-python-4  |   File "/usr/local/lib/python3.12/site-packages/aiohttp/connector.py", line 911, in _resolve_host
+  # thaumaturgy-python-4  |     return await asyncio.shield(resolved_host_task)
+  # thaumaturgy-python-4  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  # thaumaturgy-python-4  |   File "/usr/local/lib/python3.12/site-packages/aiohttp/connector.py", line 948, in _resolve_host_with_throttle
+  # thaumaturgy-python-4  |     addrs = await self._resolver.resolve(host, port, family=self._family)
+  # thaumaturgy-python-4  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  # thaumaturgy-python-4  |   File "/usr/local/lib/python3.12/site-packages/aiohttp/resolver.py", line 113, in resolve
+  # thaumaturgy-python-4  |     raise OSError(msg) from exc
+  # thaumaturgy-python-4  | OSError: Timeout while contacting DNS servers
+  # thaumaturgy-python-4  |
+  # thaumaturgy-python-4  | The above exception was the direct cause of the following exception:
+  # thaumaturgy-python-4  |
 
   valkey:
     hostname: valkey
