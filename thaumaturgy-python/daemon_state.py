@@ -6,34 +6,30 @@ class DaemonState(BaseModel):
     enabled: Optional[bool] = None
     insert_process_task_after_ingest: Optional[bool] = None
     insert_process_to_front_of_queue: Optional[bool] = None
+    maximum_concurrent_cluster_tasks: Optional[int] = None
 
 
 STARTUP_DAEMON_STATE = DaemonState(
     enabled=False,
     insert_process_task_after_ingest=True,
     insert_process_to_front_of_queue=False,
+    maximum_concurrent_cluster_tasks=60,
 )
 
 
 def validateAllValuesDefined(existing_state: DaemonState) -> bool:
-    if existing_state.enabled is None:
-        return False
-    if existing_state.insert_process_task_after_ingest is None:
-        return False
-    if existing_state.insert_process_to_front_of_queue is None:
-        return False
-    return True
+    # all function is a folding AND operation over a list of bools.
+    return all(
+        getattr(existing_state, field_name) is not None
+        for field_name in existing_state.model_fields.keys()
+    )
 
 
-def updateExistingState(existing_state: DaemonState, new_state: DaemonState):
-    if new_state.enabled is not None:
-        existing_state.enabled = new_state.enabled
-    if new_state.insert_process_task_after_ingest is not None:
-        existing_state.insert_process_task_after_ingest = (
-            new_state.insert_process_task_after_ingest
-        )
-    if new_state.insert_process_to_front_of_queue is not None:
-        existing_state.insert_process_to_front_of_queue = (
-            new_state.insert_process_to_front_of_queue
-        )
+def updateExistingState(
+    existing_state: DaemonState, new_state: DaemonState
+) -> DaemonState:
+    for field_name in new_state.model_fields:
+        new_value = getattr(new_state, field_name)
+        if new_value is not None:
+            setattr(existing_state, field_name, new_value)
     return existing_state

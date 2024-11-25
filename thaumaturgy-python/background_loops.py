@@ -84,7 +84,7 @@ async def main_processing_loop() -> None:
             default_logger.info("process loop is disabled")
             await asyncio.sleep(2)
             return None
-        if concurrent_docs >= max_concurrent_docs:
+        if concurrent_docs >= main_processing_loop_config.maximum_cluster_tasks:
             if random.randint(1, 10) == 1:
                 default_logger.info("At Capacity, Not adding any more documents.")
             await asyncio.sleep(2)
