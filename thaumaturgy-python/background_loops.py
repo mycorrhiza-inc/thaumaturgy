@@ -6,7 +6,7 @@ from common.misc_schemas import QueryData
 from common.file_schemas import ConversationInformation, DocumentStatus
 
 import logging
-from daemon_state import DaemonState
+from daemon_state import STARTUP_DAEMON_STATE, DaemonState
 from logic.file_logic import (
     add_url_raw,
     process_file_raw,
@@ -47,10 +47,13 @@ default_logger = logging.getLogger(__name__)
 
 async def main_processing_loop() -> None:
     await asyncio.sleep(
-        10
+        5
     )  # Wait 10 seconds until application has finished loading to do anything
-    max_concurrent_docs = 60
     redis_client.set(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS, 0)
+    redis_client.set(
+        REDIS_MAIN_PROCESS_LOOP_CONFIG,
+        DaemonState.model_dump_json(STARTUP_DAEMON_STATE),
+    )
     # REMOVE FOR PERSIST QUEUES ACROSS RESTARTS:
     #
     clear_file_queue(redis_client=redis_client)
@@ -235,9 +238,6 @@ async def process_add_file_scraper(
         return_task.success = False
         task_upsert(return_task)
     else:
-        # logger.info(
-        #     f"File addition step execute successfully, adding a document processing event to the queue."
-        # )
         return_task = task
         return_task.obj = result_file
         return_task.completed = True
