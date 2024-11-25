@@ -23,6 +23,7 @@ import traceback
 
 from constants import (
     REDIS_HOST,
+    REDIS_MAIN_PROCESS_LOOP_ENABLED,
     REDIS_PORT,
     REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS,
 )
@@ -58,7 +59,7 @@ async def main_processing_loop() -> None:
                 redis_client.get(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS)
             )
             main_processing_loop_enabled = bool(
-                redis_client.get(REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE)
+                redis_client.get(REDIS_MAIN_PROCESS_LOOP_ENABLED)
             )
         except Exception as e:
             default_logger.error(
