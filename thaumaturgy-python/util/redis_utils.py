@@ -50,7 +50,9 @@ def task_pop_from_queue(redis_client: Optional[Any] = None) -> Optional[Task]:
     return obj
 
 
-def task_push_to_queue(task: Task, redis_client: Optional[Any] = None) -> None:
+def task_push_to_queue(
+    task: Task, redis_client: Optional[Any] = None, push_to_front: bool = False
+) -> None:
     logger = default_logger
     if redis_client is None:
         redis_client = default_redis_client
@@ -61,7 +63,10 @@ def task_push_to_queue(task: Task, redis_client: Optional[Any] = None) -> None:
     else:
         pushkey = REDIS_DOCPROC_PRIORITYQUEUE_KEY
     json_str = task.model_dump_json()
-    redis_client.rpush(pushkey, json_str)
+    if push_to_front:
+        redis_client.lpush(pushkey, json_str)
+    else:
+        redis_client.rpush(pushkey, json_str)
     task_upsert(task, redis_client)
     logger.info(f"Pushed task of type {task.task_type.value} to queue: {task.id}")
 

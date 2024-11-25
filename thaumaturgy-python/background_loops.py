@@ -6,6 +6,7 @@ from common.misc_schemas import QueryData
 from common.file_schemas import ConversationInformation, DocumentStatus
 
 import logging
+from daemon_state import DaemonState
 from logic.file_logic import (
     add_url_raw,
     process_file_raw,
@@ -25,7 +26,7 @@ import traceback
 
 from constants import (
     REDIS_HOST,
-    REDIS_MAIN_PROCESS_LOOP_ENABLED,
+    REDIS_MAIN_PROCESS_LOOP_CONFIG,
     REDIS_PORT,
     REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS,
 )
@@ -60,8 +61,12 @@ async def main_processing_loop() -> None:
             concurrent_docs = int(
                 redis_client.get(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS)
             )
-            main_processing_loop_enabled = "true" == str(
-                redis_client.get(REDIS_MAIN_PROCESS_LOOP_ENABLED)
+            # FIXME: CACHE FOR MORE EFFICIENCY, AND MAYBE ONLY GET 1/10 of the time
+            main_processing_loop_config_str = redis_client.get(
+                REDIS_MAIN_PROCESS_LOOP_CONFIG
+            )
+            main_processing_loop_config = DaemonState.model_validate_json(
+                main_processing_loop_config_str
             )
         except Exception as e:
             default_logger.error(
@@ -71,7 +76,7 @@ async def main_processing_loop() -> None:
             return None
         # put here for safety
         # main_processing_loop_enabled = False
-        if not main_processing_loop_enabled:
+        if not main_processing_loop_config.enabled:
             default_logger.info("process loop is disabled")
             await asyncio.sleep(2)
             return None
@@ -93,7 +98,9 @@ async def main_processing_loop() -> None:
             await asyncio.sleep(2)
             return None
         try:
-            asyncio.create_task(execute_task(task=pull_obj))
+            asyncio.create_task(
+                execute_task(task=pull_obj, config=main_processing_loop_config)
+            )
             # Give some time for the process to update the ratelimit in redis, if this is causing a throughput issue it should be okay to bring it down to .01 seconds or 10 miliseconds
             await asyncio.sleep(0.1)
 
@@ -117,7 +124,7 @@ def initialize_background_loops() -> None:
     asyncio.create_task(main_processing_loop())
 
 
-async def execute_task(task: Task) -> None:
+async def execute_task(task: Task, config: DaemonState) -> None:
     increment_doc_counter(1, redis_client=redis_client)
     logger = default_logger
     # logger.info(f"Executing task of type {task.task_type.value}: {task.id}")
@@ -125,7 +132,11 @@ async def execute_task(task: Task) -> None:
         match task.task_type:
             case TaskType.add_file_scraper:
                 task.obj = ScraperInfo.model_validate(task.obj)
-                await process_add_file_scraper(task)
+                await process_add_file_scraper(
+                    task=task,
+                    insert_processing_task=config.insert_process_task_after_ingest,
+                    add_process_task_to_front=config.insert_process_to_front_of_queue,
+                )
             case TaskType.process_existing_file:
                 task.obj = CompleteFileSchema.model_validate(task.obj)
                 await process_existing_file(task)
@@ -158,7 +169,9 @@ def evolve_db_interact(
         return interact
 
 
-async def process_add_file_scraper(task: Task) -> None:
+async def process_add_file_scraper(
+    task: Task, insert_processing_task: bool, add_process_task_to_front: bool
+) -> None:
     scraper_obj = task.obj
     assert isinstance(scraper_obj, ScraperInfo)
     logger = default_logger
@@ -232,20 +245,20 @@ async def process_add_file_scraper(task: Task) -> None:
         db_interact = evolve_db_interact(
             return_task.database_interact, TaskType.process_existing_file
         )
-        new_task = create_task(
-            obj=result_file,
-            database_interaction=db_interact,
-            priority=task.priority,
-            task_type=TaskType.process_existing_file,
-        )
-        if new_task is not None:
+        if insert_processing_task:
+            new_task = create_task(
+                obj=result_file,
+                database_interaction=db_interact,
+                priority=task.priority,
+                task_type=TaskType.process_existing_file,
+            )
+            assert (
+                new_task is not None
+            ), "ASSERTION ERROR: Encountered logic error relating to an empty task, create task on those inputs should never make an empty task."
             return_task.followup_task_id = new_task.id
             return_task.followup_task_url = new_task.url
-            task_push_to_queue(new_task)
+            task_push_to_queue(new_task, push_to_front=add_process_task_to_front)
         task_upsert(return_task)
-        assert (
-            new_task is not None
-        ), "Encountered logic error relating to an empty task, create task on those inputs should never make an empty task."
 
 
 async def process_existing_file(task: Task) -> None:
