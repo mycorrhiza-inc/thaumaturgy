@@ -58,7 +58,7 @@ async def main_processing_loop() -> None:
             concurrent_docs = int(
                 redis_client.get(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS)
             )
-            main_processing_loop_enabled = bool(
+            main_processing_loop_enabled = "true" == str(
                 redis_client.get(REDIS_MAIN_PROCESS_LOOP_ENABLED)
             )
         except Exception as e:

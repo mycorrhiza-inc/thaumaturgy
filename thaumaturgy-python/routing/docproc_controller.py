@@ -88,7 +88,8 @@ class DocumentProcesserController(Controller):
     async def toggle_queue(self, data: DaemonState) -> Response:
         enable = data.enabled
         if enable is not None:
-            redis_client.set(REDIS_MAIN_PROCESS_LOOP_ENABLED, enable)
+            enable_str = "true" if enable else "false"
+            redis_client.set(REDIS_MAIN_PROCESS_LOOP_ENABLED, enable_str)
         return Response(status_code=200, content="Daemon State Updated")
 
     @get(path="/status/{task_id:uuid}")
