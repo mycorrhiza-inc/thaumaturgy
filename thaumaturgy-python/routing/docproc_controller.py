@@ -93,7 +93,13 @@ class DocumentProcesserController(Controller):
         ), "All values for the daemon state must be defined, this is likely a programming error"
         existing_state_str = DaemonState.model_dump_json(existing_state)
         redis_client.set(REDIS_MAIN_PROCESS_LOOP_CONFIG, existing_state_str)
-        return Response(status_code=200, content="Daemon State Updated")
+        return Response(status_code=201, content="Daemon State Updated")
+
+    @get(path="/dangerous/get-daemon-state")
+    async def get_daemon_state(self) -> DaemonState:
+        existing_state_str = redis_client.get(REDIS_MAIN_PROCESS_LOOP_CONFIG)
+        existing_state = DaemonState.model_validate_json(existing_state_str)
+        return existing_state
 
     @get(path="/status/{task_id:uuid}")
     async def get_status(
