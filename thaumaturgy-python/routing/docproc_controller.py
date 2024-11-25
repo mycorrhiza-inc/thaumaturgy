@@ -85,8 +85,8 @@ class DocumentProcesserController(Controller):
         return "Hello World!"
 
     @post(path="/dangerous/set-daemon-state")
-    async def toggle_queue(self, state: DaemonState):
-        enable = state.enabled
+    async def toggle_queue(self, data: DaemonState):
+        enable = data.enabled
         if enable is not None:
             redis_client.set(REDIS_MAIN_PROCESS_LOOP_ENABLED, enable)
         return Response(status_code=200, content="Daemon State Updated")
