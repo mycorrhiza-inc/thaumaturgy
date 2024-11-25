@@ -245,11 +245,13 @@ async def process_add_file_scraper(
             disable_ingest_if_hash=disable_ingest_if_hash,
         )
         if error == "file already exists":
+            logger.info("File already exists in the database, skipping.")
             return_task = task
             return_task.obj = result_file
             return_task.completed = True
             return_task.success = True
             task_upsert(return_task)
+            return None
 
         if task.database_interact == DatabaseInteraction.insert:
             logger.info("Adding file to the database in file addition step.")

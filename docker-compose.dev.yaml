@@ -28,6 +28,7 @@ services:
     volumes:
       - ./frpc.toml:/etc/frp/frpc.toml
   thaumaturgy-python:
+    # Added to help with the dns timeouts
     extra_hosts:
       - "api.kessler.xyz:146.190.116.184"
       - "marker.kessler.xyz:209.38.71.2"
