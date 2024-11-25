@@ -1,4 +1,6 @@
 from uuid import UUID
+
+import random
 from common.misc_schemas import QueryData
 
 from common.file_schemas import ConversationInformation, DocumentStatus
@@ -74,7 +76,8 @@ async def main_processing_loop() -> None:
             await asyncio.sleep(2)
             return None
         if concurrent_docs >= max_concurrent_docs:
-            default_logger.info("At Capacity, Not adding any more documents.")
+            if random.randint(1, 10) == 1:
+                default_logger.info("At Capacity, Not adding any more documents.")
             await asyncio.sleep(2)
             return None
         try:
@@ -85,7 +88,8 @@ async def main_processing_loop() -> None:
             return None
 
         if pull_obj is None:
-            default_logger.info("found no documents")
+            if random.randint(1, 50) == 1:
+                default_logger.info("found no documents")
             await asyncio.sleep(2)
             return None
         try:
