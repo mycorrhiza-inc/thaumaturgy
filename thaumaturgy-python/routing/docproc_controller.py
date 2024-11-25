@@ -44,12 +44,6 @@ from common.task_schema import (
 redis_client = redis.Redis(REDIS_HOST, port=REDIS_PORT)
 
 
-class DaemonState(BaseModel):
-    enable_background_processing: Optional[bool] = None
-    stop_at_background_docprocessing: Optional[str] = None
-    clear_queue: Optional[bool] = None
-
-
 class NyPUCScraperSchema(BaseModel):
     docket_id: Optional[str] = None
     serial: Optional[str]
@@ -82,6 +76,7 @@ def convert_ny_to_scraper_info(nypuc_scraper: NyPUCScraperSchema) -> ScraperInfo
 
 class DaemonState(BaseModel):
     enabled: Optional[bool] = None
+    clear_queue: Optional[bool] = None
 
 
 class DocumentProcesserController(Controller):
