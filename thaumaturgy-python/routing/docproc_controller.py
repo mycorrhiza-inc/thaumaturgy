@@ -18,6 +18,7 @@ from typing import Optional
 
 from constants import (
     REDIS_HOST,
+    REDIS_MAIN_PROCESS_LOOP_CONFIG,
     REDIS_MAIN_PROCESS_LOOP_ENABLED,
     REDIS_PORT,
 )
@@ -27,6 +28,12 @@ from background_loops import clear_file_queue
 import redis
 import uuid
 
+from daemon_state import (
+    DaemonState,
+    getDaemonStateFromJson,
+    updateExistingState,
+    validateAllValuesDefined,
+)
 from util.redis_utils import task_get, task_push_to_queue
 
 
@@ -74,22 +81,21 @@ def convert_ny_to_scraper_info(nypuc_scraper: NyPUCScraperSchema) -> ScraperInfo
     )
 
 
-class DaemonState(BaseModel):
-    enabled: Optional[bool] = None
-    clear_queue: Optional[bool] = None
-
-
 class DocumentProcesserController(Controller):
     @get(path="/test")
     async def Test(self) -> str:
         return "Hello World!"
 
     @post(path="/dangerous/set-daemon-state")
-    async def toggle_queue(self, data: DaemonState) -> Response:
-        enable = data.enabled
-        if enable is not None:
-            enable_str = "true" if enable else "false"
-            redis_client.set(REDIS_MAIN_PROCESS_LOOP_ENABLED, enable_str)
+    async def set_daemon_state(self, data: DaemonState) -> Response:
+        existing_state_str = redis_client.get(REDIS_MAIN_PROCESS_LOOP_CONFIG)
+        existing_state = DaemonState.model_validate_json(existing_state_str)
+        existing_state = updateExistingState(existing_state, data)
+        assert validateAllValuesDefined(
+            existing_state
+        ), "All values for the daemon state must be defined, this is likely a programming error"
+        existing_state_str = DaemonState.model_dump_json(existing_state)
+        redis_client.set(REDIS_MAIN_PROCESS_LOOP_CONFIG, existing_state_str)
         return Response(status_code=200, content="Daemon State Updated")
 
     @get(path="/status/{task_id:uuid}")

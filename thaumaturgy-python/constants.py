@@ -43,6 +43,7 @@ REDIS_DOCPROC_QUEUE_KEY = "docproc_queue_background"
 REDIS_DOCPROC_INFORMATION = "docproc_information"
 
 REDIS_MAIN_PROCESS_LOOP_ENABLED = "main_process_daemon_enabled"
+REDIS_MAIN_PROCESS_LOOP_CONFIG = "main_process_loop_config"
 REDIS_DOCPROC_BACKGROUND_PROCESSING_STOPS_AT = "docproc_background_stop_at"
 REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS = "docproc_currently_processing_docs"
 
