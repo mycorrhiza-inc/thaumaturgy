@@ -18,6 +18,7 @@ from typing import Optional
 
 from constants import (
     REDIS_HOST,
+    REDIS_MAIN_PROCESS_LOOP_ENABLED,
     REDIS_PORT,
 )
 
@@ -79,10 +80,21 @@ def convert_ny_to_scraper_info(nypuc_scraper: NyPUCScraperSchema) -> ScraperInfo
     )
 
 
+class DaemonState(BaseModel):
+    enabled: Optional[bool] = None
+
+
 class DocumentProcesserController(Controller):
     @get(path="/test")
     async def Test(self) -> str:
         return "Hello World!"
+
+    @post(path="/dangerous/set-daemon-state")
+    async def toggle_queue(self, state: DaemonState):
+        enable = state.enabled
+        if enable is not None:
+            redis_client.set(REDIS_MAIN_PROCESS_LOOP_ENABLED, enable)
+        return Response(status_code=200, content="Daemon State Updated")
 
     @get(path="/status/{task_id:uuid}")
     async def get_status(

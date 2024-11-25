@@ -22,6 +22,7 @@ from util.redis_utils import (
 import traceback
 
 from constants import (
+    REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE,
     REDIS_HOST,
     REDIS_PORT,
     REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS,
@@ -57,10 +58,18 @@ async def main_processing_loop() -> None:
             concurrent_docs = int(
                 redis_client.get(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS)
             )
+            main_processing_loop_enabled = bool(
+                redis_client.get(REDIS_DOCPROC_BACKGROUND_DAEMON_TOGGLE)
+            )
         except Exception as e:
             default_logger.error(
                 f"Could not get number of currently processing docs from redis, stopping document processing out of an abundance of caution: {e}"
             )
+            await asyncio.sleep(2)
+            return None
+        # put here for safety
+        main_processing_loop_enabled = False
+        if not main_processing_loop_enabled:
             await asyncio.sleep(2)
             return None
         if concurrent_docs >= max_concurrent_docs:
