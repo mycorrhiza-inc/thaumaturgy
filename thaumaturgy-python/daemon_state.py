@@ -7,6 +7,7 @@ class DaemonState(BaseModel):
     insert_process_task_after_ingest: Optional[bool] = None
     insert_process_to_front_of_queue: Optional[bool] = None
     maximum_concurrent_cluster_tasks: Optional[int] = None
+    disable_ingest_if_hash_identified: Optional[bool] = None
 
 
 STARTUP_DAEMON_STATE = DaemonState(
@@ -14,6 +15,7 @@ STARTUP_DAEMON_STATE = DaemonState(
     insert_process_task_after_ingest=True,
     insert_process_to_front_of_queue=False,
     maximum_concurrent_cluster_tasks=60,
+    disable_ingest_if_hash_identified=False,
 )
 
 

@@ -68,6 +68,7 @@ async def main_processing_loop() -> None:
         5
     )  # Wait 10 seconds until application has finished loading to do anything
     redis_client.set(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS, 0)
+    await initialize_process_loop_configuration()
     # REMOVE FOR PERSIST QUEUES ACROSS RESTARTS:
     #
     # FML Forgetting to uncomment this line cost around 8 hours of work.
@@ -159,6 +160,7 @@ async def execute_task(task: Task, config: DaemonState) -> None:
                     task=task,
                     insert_processing_task=config.insert_process_task_after_ingest,
                     add_process_task_to_front=config.insert_process_to_front_of_queue,
+                    disable_ingest_if_hash=config.disable_ingest_if_hash_identified,
                 )
             case TaskType.process_existing_file:
                 task.obj = CompleteFileSchema.model_validate(task.obj)
@@ -193,7 +195,10 @@ def evolve_db_interact(
 
 
 async def process_add_file_scraper(
-    task: Task, insert_processing_task: bool, add_process_task_to_front: bool
+    task: Task,
+    insert_processing_task: bool,
+    add_process_task_to_front: bool,
+    disable_ingest_if_hash: bool,
 ) -> None:
     scraper_obj = task.obj
     assert isinstance(scraper_obj, ScraperInfo)
@@ -234,7 +239,18 @@ async def process_add_file_scraper(
         conversation=convo_info,
     )
     try:
-        error, result_file = await add_url_raw(file_url, file_object)
+        error, result_file = await add_url_raw(
+            file_url=file_url,
+            file_obj=file_object,
+            disable_ingest_if_hash=disable_ingest_if_hash,
+        )
+        if error == "file already exists":
+            return_task = task
+            return_task.obj = result_file
+            return_task.completed = True
+            return_task.success = True
+            task_upsert(return_task)
+
         if task.database_interact == DatabaseInteraction.insert:
             logger.info("Adding file to the database in file addition step.")
             # assert (
@@ -262,10 +278,10 @@ async def process_add_file_scraper(
         return_task.obj = result_file
         return_task.completed = True
         return_task.success = True
-        db_interact = evolve_db_interact(
-            return_task.database_interact, TaskType.process_existing_file
-        )
         if insert_processing_task:
+            db_interact = evolve_db_interact(
+                return_task.database_interact, TaskType.process_existing_file
+            )
             new_task = create_task(
                 obj=result_file,
                 database_interaction=db_interact,

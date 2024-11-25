@@ -1,19 +1,18 @@
 import boto3
+from pydantic import BaseModel
 
 from common.niclib import seperate_markdown_string
 import yaml
 from common.niclib import rand_string, rand_filepath
 
 
-from typing import Optional, Any
+from typing import Optional, Any, Tuple
 
 import logging
 import requests
 from pathlib import Path
 from common.niclib import rand_string, get_blake2
 from tempfile import TemporaryFile
-
-
 
 
 import shutil
@@ -39,6 +38,13 @@ from constants import (
 default_logger = logging.getLogger(__name__)
 
 
+class SaveFilepathToHashResult(BaseModel):
+    path: Path
+    hash: str
+    did_exist: bool
+
+
+# TODO: Remove all the code that saves hashes to a local dir, we arent serving them later so all that can be removed
 class S3FileManager:
     def __init__(self, logger: Optional[Any] = None) -> None:
         if logger is None:
@@ -60,7 +66,8 @@ class S3FileManager:
 
     def save_filepath_to_hash(
         self, filepath: Path, hashpath: Optional[Path] = None, network: bool = True
-    ) -> tuple[str, Path]:
+    ) -> SaveFilepathToHashResult:
+        did_exist = False
         if hashpath is None:
             hashpath = self.rawfile_savedir
         filepath.parent.mkdir(exist_ok=True, parents=True)
@@ -77,7 +84,7 @@ class S3FileManager:
             self.logger.error(f"File could not be saved to : {saveloc}")
         if network:
             self.push_raw_file_to_s3(saveloc, b264_hash)
-        return (b264_hash, saveloc)
+        return SaveFilepathToHashResult(path=saveloc, hash=b264_hash, did_exist=False)
 
     def get_default_filepath_from_hash(
         self, hash: str, hashpath: Optional[Path] = None
@@ -298,7 +305,9 @@ class S3FileManager:
         filename = self.hash_to_fileid(hash)
         return self.push_file_to_s3(filepath, filename)
 
-    def push_raw_file_to_s3(self, filepath: Path, hash: Optional[str] = None) -> str:
+    def push_raw_file_to_s3(
+        self, filepath: Path, hash: Optional[str] = None
+    ) -> Tuple[bool, str]:
         if not filepath.is_file():
             raise Exception("File does not exist")
         actual_hash = self.get_blake2_str(filepath)
@@ -306,5 +315,5 @@ class S3FileManager:
             raise Exception("Hashes did not match, erroring out")
 
         if not self.does_hash_exist_s3(actual_hash):
-            return self.push_raw_file_to_s3_novalid(filepath, actual_hash)
-        return self.hash_to_fileid(actual_hash)
+            return False, self.push_raw_file_to_s3_novalid(filepath, actual_hash)
+        return True, self.hash_to_fileid(actual_hash)

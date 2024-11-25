@@ -59,15 +59,6 @@ import logging
 default_logger = logging.getLogger(__name__)
 
 
-async def does_exist_file_with_hash(hash: str) -> bool:
-    raise Exception("Deduplication not implemented on server")
-
-    # async with aiohttp.ClientSession() as session:
-    #     async with session.get(url) as response:
-    #         response_dict = await response.json()
-    # return bool(response_dict.get("exists"))
-
-
 async def upsert_full_file_to_db(
     obj: CompleteFileSchema, interact: DatabaseInteraction
 ) -> CompleteFileSchema:
@@ -134,14 +125,18 @@ async def upsert_full_file_to_db(
 async def add_url_raw(
     file_url: str,
     file_obj: CompleteFileSchema,
-    check_duplicate: bool = False,
+    disable_ingest_if_hash: bool = False,
 ) -> Tuple[Optional[str], CompleteFileSchema]:
     download_dir = OS_TMPDIR / Path("downloads")
     result_path = await download_file(file_url, download_dir)
     doctype = file_obj.extension
     if doctype is None or doctype == "":
         file_obj.extension = result_path.suffix.lstrip(".")
-    return await add_file_raw(result_path, file_obj, check_duplicate)
+    return await add_file_raw(
+        tmp_filepath=result_path,
+        file_obj=file_obj,
+        disable_ingest_if_hash=disable_ingest_if_hash,
+    )
 
 
 async def split_author_field_into_authordata(
@@ -206,7 +201,7 @@ def validate_and_rectify_file_extension(
 async def add_file_raw(
     tmp_filepath: Path,
     file_obj: CompleteFileSchema,
-    check_duplicate: bool = False,
+    disable_ingest_if_hash: bool = False,
 ) -> Tuple[Optional[str], CompleteFileSchema]:
     logger = default_logger
     file_manager = S3FileManager(logger=logger)
@@ -245,14 +240,12 @@ async def add_file_raw(
 
     logger.info("Attempting to save data to file")
     result = file_manager.save_filepath_to_hash(tmp_filepath, OS_HASH_FILEDIR)
-    (filehash, filepath) = result
-    file_obj.hash = filehash
+    file_obj.hash = result.hash
 
     os.remove(tmp_filepath)
+    if result.did_exist and disable_ingest_if_hash:
+        return "file already exists", file_obj
 
-    if check_duplicate:
-        if does_exist_file_with_hash(filehash):
-            raise Exception("File Already exists in DB, erroring out.")
     # FIXME: RENEABLE BACKUPS AT SOME POINT
     # file_manager.backup_metadata_to_hash(metadata, filehash)
     author_names = file_obj.mdata.get("author")
