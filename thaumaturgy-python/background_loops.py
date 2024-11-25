@@ -46,7 +46,7 @@ async def main_processing_loop() -> None:
     await asyncio.sleep(
         10
     )  # Wait 10 seconds until application has finished loading to do anything
-    max_concurrent_docs = 30
+    max_concurrent_docs = 60
     redis_client.set(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS, 0)
     # REMOVE FOR PERSIST QUEUES ACROSS RESTARTS:
     #
