@@ -6,7 +6,7 @@ from common.misc_schemas import QueryData
 from common.file_schemas import ConversationInformation, DocumentStatus
 
 import logging
-from daemon_state import STARTUP_DAEMON_STATE, DaemonState
+from daemon_state import STARTUP_DAEMON_STATE, DaemonState, validateAllValuesDefined
 from logic.file_logic import (
     add_url_raw,
     process_file_raw,
@@ -16,7 +16,6 @@ from logic.file_logic import (
 import asyncio
 import redis
 from util.redis_utils import (
-    clear_file_queue,
     increment_doc_counter,
     task_pop_from_queue,
     task_push_to_queue,
@@ -45,15 +44,30 @@ redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=Tr
 default_logger = logging.getLogger(__name__)
 
 
+async def initialize_process_loop_configuration():
+    try:
+        config_str = redis_client.get(REDIS_MAIN_PROCESS_LOOP_CONFIG)
+        config = DaemonState.model_validate_json(config_str)
+        valid_config = validateAllValuesDefined(config)
+        if not valid_config:
+            raise Exception(
+                f"Daemon State is not valid, reinitializing to default values: {config}"
+            )
+    except Exception as e:
+        default_logger.error(
+            f"Could not get redis config, setting to default values: {e}"
+        )
+        redis_client.set(
+            REDIS_MAIN_PROCESS_LOOP_CONFIG,
+            DaemonState.model_dump_json(STARTUP_DAEMON_STATE),
+        )
+
+
 async def main_processing_loop() -> None:
     await asyncio.sleep(
         5
     )  # Wait 10 seconds until application has finished loading to do anything
     redis_client.set(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS, 0)
-    redis_client.set(
-        REDIS_MAIN_PROCESS_LOOP_CONFIG,
-        DaemonState.model_dump_json(STARTUP_DAEMON_STATE),
-    )
     # REMOVE FOR PERSIST QUEUES ACROSS RESTARTS:
     #
     # FML Forgetting to uncomment this line cost around 8 hours of work.
@@ -84,7 +98,12 @@ async def main_processing_loop() -> None:
             default_logger.info("process loop is disabled")
             await asyncio.sleep(2)
             return None
-        if concurrent_docs >= main_processing_loop_config.maximum_cluster_tasks:
+        # TODO: Have better error handling for this, but this also should never fire.
+        assert main_processing_loop_config.maximum_concurrent_cluster_tasks is not None
+        if (
+            concurrent_docs
+            >= main_processing_loop_config.maximum_concurrent_cluster_tasks
+        ):
             if random.randint(1, 10) == 1:
                 default_logger.info("At Capacity, Not adding any more documents.")
             await asyncio.sleep(2)
