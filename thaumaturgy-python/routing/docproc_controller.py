@@ -19,18 +19,15 @@ from typing import Optional
 from constants import (
     REDIS_HOST,
     REDIS_MAIN_PROCESS_LOOP_CONFIG,
-    REDIS_MAIN_PROCESS_LOOP_ENABLED,
     REDIS_PORT,
 )
 
-from background_loops import clear_file_queue
 
 import redis
 import uuid
 
 from daemon_state import (
     DaemonState,
-    getDaemonStateFromJson,
     updateExistingState,
     validateAllValuesDefined,
 )
