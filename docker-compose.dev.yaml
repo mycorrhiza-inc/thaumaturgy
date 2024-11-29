@@ -33,10 +33,6 @@ services:
       - "--workers"
       - "4"
       - "--reload"
-    deploy:
-      mode: replicated
-      replicas: 6
-      endpoint_mode: dnsrr
     ports:
       - 5505:5505
     expose:
