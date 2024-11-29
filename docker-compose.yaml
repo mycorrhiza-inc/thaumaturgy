@@ -1,0 +1,108 @@
+# local development docker compose
+services:
+  reverse-proxy:
+    image: traefik:v3.1.2
+    command:
+      # - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entryPoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=nvenner@protonmail.ch"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--providers.docker.constraints=Label(`traefik.namespace`,`thaumaturgy`)"
+    expose:
+      - 80
+      - 443
+    ports:
+      - 2443:443
+      - "${PROXY_UI_PORT:-8084}:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "${VOLUMES_DIRECTORY:-./volumes}/letsencrypt:/letsencrypt"
+  frpc:
+    image: snowdreamtech/frpc:alpine
+    restart: always
+    network_mode: "host"
+    volumes:
+      - ./frpc.toml:/etc/frp/frpc.toml
+  thaumaturgy-python:
+    # Added to help with the dns timeouts
+    extra_hosts:
+      - "api.kessler.xyz:146.190.116.184"
+      - "marker.kessler.xyz:209.38.71.2"
+    build:
+      context: ./thaumaturgy-python/
+      dockerfile: ./Dockerfile
+    env_file:
+      - config/global.env
+    environment:
+      - MILVUS_DEV_DIR=/tmp/milvus/
+    volumes:
+      - ./thaumaturgy-python/:/app
+      - ${VOLUMES_DIRECTORY:-./volumes}/instance:/app/instance
+      - ${VOLUMES_DIRECTORY:-./volumes}/files:/files
+    labels:
+      - "traefik.enable=true"
+      - "traefik.namespace=thaumaturgy"
+      - "traefik.http.routers.thaumaturgy-python.rule=PathPrefix(`/v1/`) "
+      - "traefik.http.routers.thaumaturgy-python.rule=Host(`thaum.kessler.xyz`) && (PathPrefix(`/v1/`) || pathprefix(`/schema/`))"
+      - "traefik.http.routers.thaumaturgy-python.entrypoints=websecure"
+      - "traefik.http.routers.thaumaturgy-python.tls.certresolver=myresolver"
+    command:
+      - "uvicorn"
+      - "main:app"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "5505"
+      - "--workers"
+      - "4"
+      - "--reload"
+    deploy:
+      mode: replicated
+      replicas: 6
+      endpoint_mode: dnsrr
+    expose:
+      - 5505
+  #        2024-11-25 19:27:39,863 - background_loops - ERROR - Cannot connect to host api.kessler.xyz:443 ssl:default [None]
+  # thaumaturgy-python-4  | 2024-11-25 19:27:39,863 - background_loops - ERROR - Traceback (most recent call last):
+  # thaumaturgy-python-4  |   File "/usr/local/lib/python3.12/site-packages/aiohttp/resolver.py", line 104, in resolve
+  # thaumaturgy-python-4  |     resp = await self._resolver.getaddrinfo(
+  # thaumaturgy-python-4  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  # thaumaturgy-python-4  | aiodns.error.DNSError: (12, 'Timeout while contacting DNS servers')
+  # thaumaturgy-python-4  |
+  # thaumaturgy-python-4  | The above exception was the direct cause of the following exception:
+  # thaumaturgy-python-4  |
+  # thaumaturgy-python-4  | Traceback (most recent call last):
+  # thaumaturgy-python-4  |   File "/usr/local/lib/python3.12/site-packages/aiohttp/connector.py", line 1301, in _create_direct_connection
+  # thaumaturgy-python-4  |     hosts = await self._resolve_host(host, port, traces=traces)
+  # thaumaturgy-python-4  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  # thaumaturgy-python-4  |   File "/usr/local/lib/python3.12/site-packages/aiohttp/connector.py", line 911, in _resolve_host
+  # thaumaturgy-python-4  |     return await asyncio.shield(resolved_host_task)
+  # thaumaturgy-python-4  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  # thaumaturgy-python-4  |   File "/usr/local/lib/python3.12/site-packages/aiohttp/connector.py", line 948, in _resolve_host_with_throttle
+  # thaumaturgy-python-4  |     addrs = await self._resolver.resolve(host, port, family=self._family)
+  # thaumaturgy-python-4  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  # thaumaturgy-python-4  |   File "/usr/local/lib/python3.12/site-packages/aiohttp/resolver.py", line 113, in resolve
+  # thaumaturgy-python-4  |     raise OSError(msg) from exc
+  # thaumaturgy-python-4  | OSError: Timeout while contacting DNS servers
+  # thaumaturgy-python-4  |
+  # thaumaturgy-python-4  | The above exception was the direct cause of the following exception:
+  # thaumaturgy-python-4  |
+
+  valkey:
+    hostname: valkey
+    image: valkey/valkey:7.2.5
+    volumes:
+      - ./volumes/valkey.conf:/etc/valkey/valkey.conf
+      - ./volumes/valkey-data:/data
+    command: valkey-server /etc/valkey/valkey.conf
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
+    expose:
+      - 6379
