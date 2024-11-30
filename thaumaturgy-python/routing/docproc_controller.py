@@ -1,3 +1,4 @@
+import aiohttp
 from typing_extensions import List
 from pydantic import BaseModel
 from typing import Optional
@@ -16,7 +17,10 @@ from litestar.params import Parameter
 from typing import Optional
 
 
+from common.file_schemas import NEWDOCSTAGE
 from constants import (
+    KESSLER_API_URL,
+    REDIS_DOCPROC_QUEUE_KEY,
     REDIS_HOST,
     REDIS_MAIN_PROCESS_LOOP_CONFIG,
     REDIS_PORT,
@@ -44,8 +48,10 @@ from common.task_schema import (
     create_task,
     CompleteFileSchema,
 )
+import logging
 
 redis_client = redis.Redis(REDIS_HOST, port=REDIS_PORT)
+default_logger = logging.getLogger(__name__)
 
 
 class NyPUCScraperSchema(BaseModel):
@@ -78,6 +84,80 @@ def convert_ny_to_scraper_info(nypuc_scraper: NyPUCScraperSchema) -> ScraperInfo
     )
 
 
+class DaemonStatus(BaseModel):
+    config: DaemonState = DaemonState()
+    background_task_queue_length: int = -1
+    priority_task_queue_length: int = -1
+
+
+def getDaemonStatus(redis_client: redis.Redis) -> DaemonStatus:
+    existing_state_str = redis_client.get(REDIS_MAIN_PROCESS_LOOP_CONFIG)
+    existing_state = DaemonState.model_validate_json(existing_state_str)
+    priority_task_queue_length = int(redis_client.llen(REDIS_DOCPROC_PRIORITYQUEUE_KEY))
+    background_task_queue_length = int(redis_client.llen(REDIS_DOCPROC_QUEUE_KEY))
+    status = DaemonStatus(
+        config=existing_state,
+        background_task_queue_length=background_task_queue_length,
+        priority_task_queue_length=priority_task_queue_length,
+    )
+    return status
+
+
+async def backgroundRequestDocuments(
+    request_size: int,
+    check_if_empty: bool = True,
+    redis_client: redis.Redis = redis_client,
+) -> str:
+    if check_if_empty:
+        background_not_empty = int(redis_client.llen(REDIS_DOCPROC_QUEUE_KEY)) != 0
+        priority_not_empty = int(redis_client.llen(REDIS_DOCPROC_QUEUE_KEY)) != 0
+        if background_not_empty or priority_not_empty:
+            raise Exception("Queue not empty")
+    async with aiohttp.ClientSession() as session:
+        response = await session.post(
+            f"{KESSLER_API_URL}/v2/admin/get-unverified-docs/{request_size}"
+        )
+        if response.status < 200 and response.status >= 300:
+            raise Exception(
+                "Failed to get response from server with code "
+                + str(response.status)
+                + "\n and body "
+                + str(response)
+            )
+
+    return "complete"
+
+
+def process_existing_docs(
+    files: List[CompleteFileSchema],
+    priority: bool = False,
+    redis_client: redis.Redis = redis_client,
+) -> List[Task]:
+    logger = default_logger
+
+    def create_push_file(file: CompleteFileSchema) -> Task:
+        # Reset
+        if file.stage.database_error_msg != "":
+            logger.error(
+                f"Encountered a database error for file {file.id} with error: {file.stage.database_error_msg}"
+            )
+            file.stage = NEWDOCSTAGE
+        task = create_task(
+            obj=file,
+            priority=priority,
+            database_interaction=DatabaseInteraction.update,
+            kwargs={},
+            task_type=TaskType.process_existing_file,
+        )
+        if task is None:
+            raise Exception("Unable to create task")
+        task_push_to_queue(task)
+        return task
+
+    return_tasks = map(create_push_file, files)
+    return list(return_tasks)
+
+
 class DocumentProcesserController(Controller):
     @get(path="/test")
     async def Test(self) -> str:
@@ -95,7 +175,7 @@ class DocumentProcesserController(Controller):
         redis_client.set(REDIS_MAIN_PROCESS_LOOP_CONFIG, existing_state_str)
         return "Daemon State Updated"
 
-    @get(path="/dangerous/get-daemon-state")
+    @get(path="/dangerous/get-daemon-status")
     async def get_daemon_state(self) -> DaemonState:
         existing_state_str = redis_client.get(REDIS_MAIN_PROCESS_LOOP_CONFIG)
         existing_state = DaemonState.model_validate_json(existing_state_str)
@@ -115,17 +195,13 @@ class DocumentProcesserController(Controller):
     async def process_existing_document_handler(
         self, data: CompleteFileSchema, priority: bool
     ) -> Task:
-        task = create_task(
-            data,
-            priority=priority,
-            database_interaction=DatabaseInteraction.update,
-            kwargs={},
-            task_type=TaskType.process_existing_file,
-        )
-        if task is None:
-            raise Exception("Unable to create task")
-        task_push_to_queue(task)
-        return task
+        return process_existing_docs(files=[data], priority=priority)[0]
+
+    @post(path="/process-existing-document/list")
+    async def process_existing_documents_handler(
+        self, data: List[CompleteFileSchema], priority: bool
+    ) -> List[Task]:
+        return process_existing_docs(files=data, priority=priority)
 
     # https://thaum.kessler.xyz/v1/process-scraped-doc
     @post(path="/process-scraped-doc")
