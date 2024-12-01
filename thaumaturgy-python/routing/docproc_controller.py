@@ -1,6 +1,6 @@
 import aiohttp
 from typing_extensions import List
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 from typing import Optional
 
 
@@ -9,7 +9,6 @@ from litestar import Controller, Request, Response
 from litestar.handlers.http_handlers.decorators import (
     get,
     post,
-    delete,
 )
 
 
@@ -103,6 +102,10 @@ def getDaemonStatus(redis_client: redis.Redis) -> DaemonStatus:
     return status
 
 
+class ListCompleteFileSchema(BaseModel):
+    __root__: List[CompleteFileSchema]
+
+
 async def backgroundRequestDocuments(
     request_size: int,
     check_if_empty: bool = True,
@@ -124,6 +127,9 @@ async def backgroundRequestDocuments(
                 + "\n and body "
                 + str(response)
             )
+        files = ListCompleteFileSchema.model_validate(await response.json())
+        files = files.__root__
+        process_existing_docs(files=files, priority=False, redis_client=redis_client)
 
     return "complete"
 
@@ -151,7 +157,7 @@ def process_existing_docs(
         )
         if task is None:
             raise Exception("Unable to create task")
-        task_push_to_queue(task)
+        task_push_to_queue(task, redis_client=redis_client)
         return task
 
     return_tasks = map(create_push_file, files)
@@ -190,6 +196,13 @@ class DocumentProcesserController(Controller):
         if task is None:
             return Response(status_code=404, content="Task not found")
         return Response(status_code=200, content=task)
+
+    @post(path="/get-docs-from-kessler")
+    async def get_from_kessler(
+        self, max_docs: int = 1000, priority: bool = False
+    ) -> str:
+        await backgroundRequestDocuments(max_docs, priority)
+        return "Success!"
 
     @post(path="/process-existing-document")
     async def process_existing_document_handler(
