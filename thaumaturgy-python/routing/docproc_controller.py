@@ -1,6 +1,6 @@
 import aiohttp
 from typing_extensions import List
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, RootModel, TypeAdapter
 from typing import Optional
 
 
@@ -102,8 +102,8 @@ def getDaemonStatus(redis_client: redis.Redis) -> DaemonStatus:
     return status
 
 
-class ListCompleteFileSchema(BaseModel):
-    __root__: List[CompleteFileSchema]
+class ListCompleteFileSchema(RootModel):
+    root: List[CompleteFileSchema]
 
 
 async def backgroundRequestDocuments(
@@ -128,7 +128,7 @@ async def backgroundRequestDocuments(
                 + str(response)
             )
         files = ListCompleteFileSchema.model_validate(await response.json())
-        files = files.__root__
+        files = files.root
         process_existing_docs(files=files, priority=False, redis_client=redis_client)
 
     return "complete"
