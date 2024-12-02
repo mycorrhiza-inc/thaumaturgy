@@ -11,7 +11,10 @@ default_logger = logging.getLogger(__name__)
 
 class ExtraGenerator:
     def __init__(self):
-        self.big_llm = KeLLMUtils(ModelName.llama_405b)
+        # self.big_llm = KeLLMUtils(ModelName.llama_405b)
+        self.big_llm = KeLLMUtils(
+            ModelName.llama_70b
+        )  # Changing to 70b to bring down costs for a bit
         self.tiny_llm = KeLLMUtils(ModelName.llama_8b)
         self.medium_llm = KeLLMUtils(ModelName.llama_70b)
         self.logger = default_logger
