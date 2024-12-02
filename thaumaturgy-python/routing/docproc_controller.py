@@ -182,9 +182,8 @@ class DocumentProcesserController(Controller):
         return "Daemon State Updated"
 
     @delete(path="/dangerous/clear-queue")
-    async def clear_queue(self) -> str:
+    async def clear_queue(self):
         clear_file_queue(redis_client=redis_client)
-        return "Queue cleared"
 
     @get(path="/dangerous/get-daemon-status")
     async def get_daemon_status(self) -> DaemonStatus:
