@@ -19,6 +19,7 @@ from typing import Optional
 from common.file_schemas import NEWDOCSTAGE
 from constants import (
     KESSLER_API_URL,
+    REDIS_DOCPROC_PRIORITYQUEUE_KEY,
     REDIS_DOCPROC_QUEUE_KEY,
     REDIS_HOST,
     REDIS_MAIN_PROCESS_LOOP_CONFIG,
@@ -113,7 +114,9 @@ async def backgroundRequestDocuments(
 ) -> str:
     if check_if_empty:
         background_not_empty = int(redis_client.llen(REDIS_DOCPROC_QUEUE_KEY)) != 0
-        priority_not_empty = int(redis_client.llen(REDIS_DOCPROC_QUEUE_KEY)) != 0
+        priority_not_empty = (
+            int(redis_client.llen(REDIS_DOCPROC_PRIORITYQUEUE_KEY)) != 0
+        )
         if background_not_empty or priority_not_empty:
             raise Exception("Queue not empty")
     async with aiohttp.ClientSession() as session:
