@@ -3,6 +3,7 @@ llama-index-llms-groq
 llama-index-llms-openai
 llama-index-llms-octoai
 llama-index-llms-fireworks
+llama-index-llms-deepinfra
 
 llama_index.vector_stores.milvus
 llama-index-embeddings-octoai

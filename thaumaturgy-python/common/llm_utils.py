@@ -18,9 +18,16 @@ import logging
 from llama_index.llms.groq import Groq
 from llama_index.llms.openai import OpenAI
 from llama_index.llms.fireworks import Fireworks
+from llama_index.llms.deepinfra import DeepInfraLLM
 
 
-from constants import OPENAI_API_KEY, OCTOAI_API_KEY, GROQ_API_KEY, FIREWORKS_API_KEY
+from constants import (
+    OPENAI_API_KEY,
+    OCTOAI_API_KEY,
+    GROQ_API_KEY,
+    FIREWORKS_API_KEY,
+    DEEPINFRA_API_KEY,
+)
 
 
 class ModelName(Enum):
@@ -37,24 +44,28 @@ def get_llm_from_model_name(model_name: Optional[ModelName]):
 
     match model_name:
         case ModelName.llama_8b:
-            return Fireworks(
-                model="accounts/fireworks/models/llama-v3p1-8b-instruct",
-                api_key=FIREWORKS_API_KEY,
+            return DeepInfraLLM(
+                model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+                api_key=DEEPINFRA_API_KEY,
             )
         case ModelName.llama_90b:
+            return DeepInfraLLM(
+                model="meta-llama/Llama-3.2-90B-Vision-Instruct",
+                api_key=DEEPINFRA_API_KEY,
+            )
             return Fireworks(
                 model="accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
                 api_key=FIREWORKS_API_KEY,
             )
         case ModelName.llama_70b:
-            return Fireworks(
-                model="accounts/fireworks/models/llama-v3p1-70b-instruct",
-                api_key=FIREWORKS_API_KEY,
+            return DeepInfraLLM(
+                model="meta-llama/Meta-Llama-3.1-70B-Instruct",
+                api_key=DEEPINFRA_API_KEY,
             )
         case ModelName.llama_405b:
-            return Fireworks(
-                model="accounts/fireworks/models/llama-v3p1-405b-instruct",
-                api_key=FIREWORKS_API_KEY,
+            return DeepInfraLLM(
+                model="meta-llama/Meta-Llama-3.1-405B-Instruct",
+                api_key=DEEPINFRA_API_KEY,
             )
         case ModelName.gpt_4o:
             return OpenAI(model="gpt-4o", request_timeout=60.0, api_key=OPENAI_API_KEY)

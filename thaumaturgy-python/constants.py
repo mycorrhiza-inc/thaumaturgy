@@ -16,6 +16,7 @@ GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 OCTOAI_API_KEY = os.environ["OCTOAI_API_KEY"]
 FIREWORKS_API_KEY = os.environ["FIREWORKS_API_KEY"]
+DEEPINFRA_API_KEY = os.environ["DEEPINFRA_API_KEY"]
 
 
 OS_TMPDIR = Path(os.getenv("TMPDIR", "/tmp/"))
