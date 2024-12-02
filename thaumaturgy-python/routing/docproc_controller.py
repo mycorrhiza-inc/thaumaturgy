@@ -6,10 +6,7 @@ from typing import Optional
 
 from litestar import Controller, Request, Response
 
-from litestar.handlers.http_handlers.decorators import (
-    get,
-    post,
-)
+from litestar.handlers.http_handlers.decorators import get, post, delete
 
 
 from litestar.params import Parameter
@@ -35,7 +32,7 @@ from daemon_state import (
     updateExistingState,
     validateAllValuesDefined,
 )
-from util.redis_utils import task_get, task_push_to_queue
+from util.redis_utils import clear_file_queue, task_get, task_push_to_queue
 
 
 from common.task_schema import (
@@ -183,6 +180,11 @@ class DocumentProcesserController(Controller):
         existing_state_str = DaemonState.model_dump_json(existing_state)
         redis_client.set(REDIS_MAIN_PROCESS_LOOP_CONFIG, existing_state_str)
         return "Daemon State Updated"
+
+    @delete(path="/dangerous/clear-queue")
+    async def clear_queue(self) -> str:
+        clear_file_queue(redis_client=redis_client)
+        return "Queue cleared"
 
     @get(path="/dangerous/get-daemon-status")
     async def get_daemon_status(self) -> DaemonStatus:
