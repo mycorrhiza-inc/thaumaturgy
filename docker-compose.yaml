@@ -62,7 +62,7 @@ services:
       - "--reload"
     deploy:
       mode: replicated
-      replicas: 6
+      replicas: ${REPLICAS}
       endpoint_mode: dnsrr
     expose:
       - 5505

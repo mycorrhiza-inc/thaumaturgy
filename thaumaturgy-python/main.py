@@ -1,4 +1,5 @@
 from asyncio import run
+import asyncio
 import logging
 import traceback
 
@@ -18,7 +19,13 @@ from routing.docproc_controller import DocumentProcesserController
 from background_loops import initialize_background_loops
 
 
-from constants import FIREWORKS_API_KEY, GROQ_API_KEY, OCTOAI_API_KEY, OPENAI_API_KEY
+from constants import (
+    DEEPINFRA_API_KEY,
+    FIREWORKS_API_KEY,
+    GROQ_API_KEY,
+    OCTOAI_API_KEY,
+    OPENAI_API_KEY,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +48,15 @@ async def run_startup_env_checks():
         raise EnvironmentError(
             "OCTOAI_API_KEY environment variable is not set. Please set it to use OctoAI services."
         )
+    if not DEEPINFRA_API_KEY:
+        raise EnvironmentError(
+            "OCTOAI_API_KEY environment variable is not set. Please set it to use OctoAI services."
+        )
     test_medium_llm = KeLLMUtils(ModelName.llama_70b)
-    result = await test_medium_llm.simple_question("Did this test work?")
+    medium_promise = test_medium_llm.simple_question("Did this test work?")
+    test_small_llm = KeLLMUtils(ModelName.llama_8b)
+    small_promise = test_small_llm.simple_question("Did this test work?")
+    await asyncio.gather(medium_promise, small_promise)
 
 
 async def on_startup() -> None:
