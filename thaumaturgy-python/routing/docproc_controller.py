@@ -181,7 +181,7 @@ class DocumentProcesserController(Controller):
         redis_client.set(REDIS_MAIN_PROCESS_LOOP_CONFIG, existing_state_str)
         return "Daemon State Updated"
 
-    @delete(path="/dangerous/clear-queue")
+    @post(path="/dangerous/clear-queue")
     async def clear_queue(self) -> str:
         clear_file_queue(redis_client=redis_client)
         return "Queue cleared"
