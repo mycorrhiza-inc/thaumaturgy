@@ -182,10 +182,9 @@ class DocumentProcesserController(Controller):
         return "Daemon State Updated"
 
     @get(path="/dangerous/get-daemon-status")
-    async def get_daemon_state(self) -> DaemonState:
-        existing_state_str = redis_client.get(REDIS_MAIN_PROCESS_LOOP_CONFIG)
-        existing_state = DaemonState.model_validate_json(existing_state_str)
-        return existing_state
+    async def get_daemon_status(self) -> DaemonStatus:
+        status = getDaemonStatus(redis_client=redis_client)
+        return status
 
     @get(path="/status/{task_id:uuid}")
     async def get_status(
