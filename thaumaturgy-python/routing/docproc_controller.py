@@ -117,7 +117,7 @@ async def backgroundRequestDocuments(
         if background_not_empty or priority_not_empty:
             raise Exception("Queue not empty")
     async with aiohttp.ClientSession() as session:
-        response = await session.post(
+        response = await session.get(
             f"{KESSLER_API_URL}/v2/admin/get-unverified-docs/{request_size}"
         )
         if response.status < 200 and response.status >= 300:
@@ -128,6 +128,7 @@ async def backgroundRequestDocuments(
                 + str(response)
             )
         result_json = await response.json()
+
         files = ListCompleteFileSchema.model_validate_json(result_json)
         files = files.root
         process_existing_docs(files=files, priority=False, redis_client=redis_client)
