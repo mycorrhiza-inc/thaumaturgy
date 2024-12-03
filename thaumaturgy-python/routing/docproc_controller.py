@@ -127,7 +127,8 @@ async def backgroundRequestDocuments(
                 + "\n and body "
                 + str(response)
             )
-        files = ListCompleteFileSchema.model_validate(await response.json())
+        result_json = await response.json()
+        files = ListCompleteFileSchema.model_validate_json(result_json)
         files = files.root
         process_existing_docs(files=files, priority=False, redis_client=redis_client)
 
@@ -181,6 +182,8 @@ class DocumentProcesserController(Controller):
         redis_client.set(REDIS_MAIN_PROCESS_LOOP_CONFIG, existing_state_str)
         return "Daemon State Updated"
 
+    # TODO: Change this method to a delete, last time I did it caused some unkown issues I didnt want to debug
+    # I should probably just read the litestar documentation - nic
     @post(path="/dangerous/clear-queue")
     async def clear_queue(self) -> str:
         clear_file_queue(redis_client=redis_client)
