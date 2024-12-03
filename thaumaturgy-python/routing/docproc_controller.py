@@ -107,6 +107,7 @@ class ListCompleteFileSchema(RootModel):
 async def backgroundRequestDocuments(
     request_size: int,
     check_if_empty: bool = True,
+    priority: bool = False,
     redis_client: redis.Redis = redis_client,
 ) -> str:
     if check_if_empty:
@@ -131,7 +132,7 @@ async def backgroundRequestDocuments(
 
         files = ListCompleteFileSchema.model_validate(result_json)
         files = files.root
-        process_existing_docs(files=files, priority=False, redis_client=redis_client)
+        process_existing_docs(files=files, priority=priority, redis_client=redis_client)
 
     return "complete"
 
@@ -207,9 +208,11 @@ class DocumentProcesserController(Controller):
 
     @post(path="/get-docs-from-kessler")
     async def get_from_kessler(
-        self, max_docs: int = 1000, priority: bool = False
+        self, max_docs: int = 1000, check_if_empty: bool = True, priority: bool = False
     ) -> str:
-        await backgroundRequestDocuments(max_docs, priority)
+        await backgroundRequestDocuments(
+            request_size=max_docs, check_if_empty=check_if_empty, priority=priority
+        )
         return "Success!"
 
     @post(path="/process-existing-document")
