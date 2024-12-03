@@ -129,7 +129,7 @@ async def backgroundRequestDocuments(
             )
         result_json = await response.json()
 
-        files = ListCompleteFileSchema.model_validate_json(result_json)
+        files = ListCompleteFileSchema.model_validate(result_json)
         files = files.root
         process_existing_docs(files=files, priority=False, redis_client=redis_client)
 
