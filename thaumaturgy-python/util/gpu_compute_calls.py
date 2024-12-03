@@ -155,7 +155,7 @@ class GPUComputeEndpoint:
                     )
             return await self.pull_marker_endpoint_for_response(
                 request_check_url=request_check_url,
-                max_polls=200,
+                max_polls=50,
                 poll_wait=3 + 7 * int(not priority),
             )
 
