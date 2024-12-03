@@ -116,7 +116,7 @@ async def backgroundRequestDocuments(
             int(redis_client.llen(REDIS_DOCPROC_PRIORITYQUEUE_KEY)) != 0
         )
         if background_not_empty or priority_not_empty:
-            raise Exception("Queue not empty")
+            return "queue not empty"
     async with aiohttp.ClientSession() as session:
         response = await session.get(
             f"{KESSLER_API_URL}/v2/admin/get-unverified-docs/{request_size}"
@@ -209,11 +209,13 @@ class DocumentProcesserController(Controller):
     @post(path="/get-docs-from-kessler")
     async def get_from_kessler(
         self, max_docs: int = 1000, check_if_empty: bool = True, priority: bool = False
-    ) -> str:
-        await backgroundRequestDocuments(
+    ) -> Response:
+        result = await backgroundRequestDocuments(
             request_size=max_docs, check_if_empty=check_if_empty, priority=priority
         )
-        return "Success!"
+        if result == "queue not empty":
+            return Response(status_code=200, content="Queue not empty")
+        return Response(status_code=201, content="Complete")
 
     @post(path="/process-existing-document")
     async def process_existing_document_handler(
