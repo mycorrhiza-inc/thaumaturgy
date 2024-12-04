@@ -64,10 +64,10 @@ async def initialize_process_loop_configuration():
 
 
 async def main_processing_loop() -> None:
+    redis_client.set(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS, 0)
     await asyncio.sleep(
         5
     )  # Wait 10 seconds until application has finished loading to do anything
-    redis_client.set(REDIS_DOCPROC_CURRENTLY_PROCESSING_DOCS, 0)
     await initialize_process_loop_configuration()
     # REMOVE FOR PERSIST QUEUES ACROSS RESTARTS:
     #

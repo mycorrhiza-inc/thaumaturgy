@@ -1,4 +1,4 @@
-from common.llm_utils import ChatRole, KeChatMessage, KeLLMUtils
+from common.llm_utils import ChatRole, KeChatMessage, KeLLMUtils, ModelName
 from util.gpu_compute_calls import audio_to_text_api
 from pydantic import BaseModel
 from pathlib import Path
@@ -14,7 +14,7 @@ class TranscribedNote(BaseModel):
     summary: Optional[str] = None
 
 
-llm = KeLLMUtils("llama-70b")
+llm = KeLLMUtils(ModelName.llama_70b)
 
 
 # Moving this to another file might be a good idea. Plus throwing the semantic splitter to split on sentnaces is probably a good idea.

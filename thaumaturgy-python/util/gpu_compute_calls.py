@@ -17,7 +17,14 @@ import asyncio
 
 from pydantic import BaseModel
 
-from constants import OS_TMPDIR, DATALAB_API_KEY, MARKER_ENDPOINT_URL, OPENAI_API_KEY
+from constants import (
+    MARKER_MAX_POLLS,
+    MARKER_SECONDS_PER_POLL,
+    OS_TMPDIR,
+    DATALAB_API_KEY,
+    MARKER_ENDPOINT_URL,
+    OPENAI_API_KEY,
+)
 
 
 global_marker_server_urls = ["https://marker.kessler.xyz"]
@@ -153,10 +160,16 @@ class GPUComputeEndpoint:
                     self.logger.info(
                         f"Got response from marker server, polling to see when file is finished processing at url: {request_check_url}"
                     )
+            assert (
+                MARKER_MAX_POLLS is not None
+            ), "MARKER_MAX_POLLS is None, consider defining it!"
+            assert (
+                MARKER_SECONDS_PER_POLL is not None
+            ), "MARKER_SECONDS_PER_POLL is None, consider defining it!"
             return await self.pull_marker_endpoint_for_response(
                 request_check_url=request_check_url,
-                max_polls=50,
-                poll_wait=3 + 7 * int(not priority),
+                max_polls=MARKER_MAX_POLLS,
+                poll_wait=3 + (MARKER_SECONDS_PER_POLL - 3) * int(not priority),
             )
 
     # Commenting out, we should never need  to use datalab.

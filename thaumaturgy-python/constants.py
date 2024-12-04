@@ -18,6 +18,15 @@ OCTOAI_API_KEY = os.environ["OCTOAI_API_KEY"]
 FIREWORKS_API_KEY = os.environ["FIREWORKS_API_KEY"]
 DEEPINFRA_API_KEY = os.environ["DEEPINFRA_API_KEY"]
 
+MARKER_SECONDS_PER_POLL = (
+    int(os.environ["MARKER_SECONDS_PER_POLL"])
+    if os.environ["MARKER_SECONDS_PER_POLL"]
+    else None
+)
+MARKER_MAX_POLLS = (
+    int(os.environ["MARKER_MAX_POLLS"]) if os.environ["MARKER_MAX_POLLS"] else None
+)
+
 
 OS_TMPDIR = Path(os.getenv("TMPDIR", "/tmp/"))
 OS_GPU_COMPUTE_URL = os.environ["GPU_COMPUTE_URL"]

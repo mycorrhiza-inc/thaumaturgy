@@ -23,6 +23,8 @@ from constants import (
     DEEPINFRA_API_KEY,
     FIREWORKS_API_KEY,
     GROQ_API_KEY,
+    MARKER_MAX_POLLS,
+    MARKER_SECONDS_PER_POLL,
     OCTOAI_API_KEY,
     OPENAI_API_KEY,
 )
@@ -51,6 +53,12 @@ async def run_startup_env_checks():
     if not DEEPINFRA_API_KEY:
         raise EnvironmentError(
             "OCTOAI_API_KEY environment variable is not set. Please set it to use OctoAI services."
+        )
+    if not MARKER_MAX_POLLS or MARKER_MAX_POLLS < 0:
+        raise EnvironmentError("MARKER_MAX_POLLS environment variable is not set.")
+    if not MARKER_SECONDS_PER_POLL or MARKER_SECONDS_PER_POLL < 0:
+        raise EnvironmentError(
+            "MARKER_SECONDS_PER_POLL environment variable is not set."
         )
     test_medium_llm = KeLLMUtils(ModelName.llama_70b)
     medium_promise = test_medium_llm.simple_question("Did this test work?")
