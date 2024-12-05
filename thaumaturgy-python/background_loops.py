@@ -169,8 +169,8 @@ async def execute_task(task: Task, config: DaemonState) -> None:
         logger.error(
             "Somehow an exception made it to the top task excecution level, this shouldnt happen, exception handling should be done inside each task function."
         )
-
-    increment_doc_counter(-1, redis_client=redis_client)
+    finally:
+        increment_doc_counter(-1, redis_client=redis_client)
 
     # logger.info(f"Finished executing task of type {task.task_type.value}: {task.id}")
 

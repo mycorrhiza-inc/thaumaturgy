@@ -2,6 +2,7 @@
 services:
   reverse-proxy:
     image: traefik:v3.1.2
+    restart: always
     command:
       # - "--log.level=DEBUG"
       - "--api.insecure=true"
@@ -28,6 +29,7 @@ services:
     volumes:
       - ./frpc.toml:/etc/frp/frpc.toml
   thaumaturgy-python:
+    restart: always
     # Added to help with the dns timeouts
     extra_hosts:
       - "api.kessler.xyz:146.190.116.184"
@@ -95,6 +97,7 @@ services:
   valkey:
     hostname: valkey
     image: valkey/valkey:7.2.5
+    restart: always
     volumes:
       - ./volumes/valkey.conf:/etc/valkey/valkey.conf
       - ./volumes/valkey-data:/data
