@@ -54,6 +54,12 @@ class S3FileManager:
         self.metadata_backupdir = OS_BACKUP_FILEDIR
         self.endpoint = S3_ENDPOINT
         self.logger = logger
+
+        # Create directories if they don't exist
+        self.tmpdir.mkdir(parents=True, exist_ok=True)
+        self.rawfile_savedir.mkdir(parents=True, exist_ok=True)
+        self.metadata_backupdir.mkdir(parents=True, exist_ok=True)
+
         self.s3 = boto3.client(
             "s3",
             endpoint_url=self.endpoint,
