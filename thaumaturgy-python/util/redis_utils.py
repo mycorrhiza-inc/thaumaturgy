@@ -78,7 +78,11 @@ def task_upsert(task, redis_client: Optional[Any] = None) -> None:
     assert isinstance(task, Task)
     json_str = task.model_dump_json()
     string_id = str(task.id)
-    redis_client.set(string_id, json_str)
+    redis_client.set(
+        string_id,
+        json_str,
+    )
+    redis_client.expire(string_id, 60 * 60)
 
 
 def task_get(task_id: UUID, redis_client: Optional[Any] = None) -> Optional[Task]:
@@ -86,6 +90,7 @@ def task_get(task_id: UUID, redis_client: Optional[Any] = None) -> Optional[Task
         redis_client = default_redis_client
     uuid_str = str(task_id)
     task_str = redis_client.get(uuid_str)
+    redis_client.expire(uuid_str, 60 * 60)
     if task_str is None:
         return None
     try:

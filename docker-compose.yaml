@@ -109,3 +109,9 @@ services:
       retries: 5
     expose:
       - 6379
+    mem_limit: 20gb
+    memswap_limit: 20gb
+    deploy:
+      resources:
+        limits:
+          memory: 20gb
