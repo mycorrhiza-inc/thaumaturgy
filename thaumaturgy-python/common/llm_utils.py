@@ -59,7 +59,7 @@ def get_llm_from_model_name(model_name: Optional[ModelName]):
             )
         case ModelName.llama_70b:
             return DeepInfraLLM(
-                model="meta-llama/Meta-Llama-3.1-70B-Instruct",
+                model="meta-llama/Llama-3.3-70B-Instruct",
                 api_key=DEEPINFRA_API_KEY,
             )
         case ModelName.llama_405b:
