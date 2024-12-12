@@ -53,10 +53,6 @@ def get_llm_from_model_name(model_name: Optional[ModelName]):
                 model="meta-llama/Llama-3.2-90B-Vision-Instruct",
                 api_key=DEEPINFRA_API_KEY,
             )
-            return Fireworks(
-                model="accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
-                api_key=FIREWORKS_API_KEY,
-            )
         case ModelName.llama_70b:
             return DeepInfraLLM(
                 model="meta-llama/Llama-3.3-70B-Instruct",
