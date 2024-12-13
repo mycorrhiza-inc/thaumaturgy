@@ -126,11 +126,15 @@ async def process_file_raw(
         # FIXME: Change to deriving the filepath from the uri.
         # This process might spit out new metadata that was embedded in the document, ignoring for now
         logger.info("Sending async request to pdf file.")
-        processed_original_text = (
-            await mdextract.process_raw_document_into_untranslated_text_from_hash(
-                hash=hash, lang=obj.lang, extension=obj.extension
+        try:
+            processed_original_text = (
+                await mdextract.process_raw_document_into_untranslated_text_from_hash(
+                    hash=hash, lang=obj.lang, extension=obj.extension
+                )
             )
-        )
+        except Exception as e:
+            obj.stage.skip_processing = True
+            raise e
         logger.info(
             f"Successfully processed original text: {
                 processed_original_text[0:50]}"
@@ -216,12 +220,13 @@ async def process_file_raw(
         # await the json if async
 
     # Better then a while loop that might run forever, this loop should absolutely end after 1000 iterations
-    for i in range(0, 1000):
+    for _ in range(0, 1000):
         if docstatus_index(current_stage) >= docstatus_index(stop_at):
             logger.info(current_stage.value)
             obj.stage = DocProcStage(
                 pg_stage=PGStage.COMPLETED,
                 processing_error_msg="",
+                ingest_error_msg=obj.stage.ingest_error_msg,
                 database_error_msg="",
                 docproc_stage=current_stage,
                 is_errored=False,
