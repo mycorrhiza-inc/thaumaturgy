@@ -58,7 +58,7 @@ import logging
 
 from logic.file_validation import (
     validate_and_rectify_file_extension,
-    validate_file_path_vs_extension,
+    validate_file_hash_vs_extension,
 )
 
 default_logger = logging.getLogger(__name__)
@@ -91,9 +91,6 @@ async def process_file_raw(
     file_manager = S3FileManager(logger=logger)
     text = {}
     # Move back to stage 1 after all files are in s3 to save bandwith
-    file_path = file_manager.generate_local_filepath_from_hash(obj.hash)
-    if file_path is None:
-        raise Exception(f"File Must Not exist for hash {obj.hash}")
 
     async def process_stage_handle_extension():
         valid_extension = None
@@ -110,9 +107,7 @@ async def process_file_raw(
             raise Exception(
                 f"Unable to get proper file extension even after trying to rectify, please fix: {obj.extension}"
             )
-        valid_file, error = await validate_file_path_vs_extension(
-            file_path, valid_extension
-        )
+        valid_file, error = await validate_file_hash_vs_extension(hash, valid_extension)
         if not valid_file:
             obj.stage.ingest_error_msg = error
             obj.stage.skip_processing = True

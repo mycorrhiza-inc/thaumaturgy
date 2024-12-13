@@ -31,15 +31,15 @@ def validate_and_rectify_file_extension(
 
 
 async def validate_file_hash_vs_extension(
-    hash: str, extension: KnownFileExtension
+    filehash: str, extension: KnownFileExtension
 ) -> Tuple[bool, str]:
     logger = default_logger
     s3_client = S3FileManager()
     result_filepath = await s3_client.generate_local_filepath_from_hash_async(
-        hash, ensure_network=False, download_local=True
+        filehash, ensure_network=False, download_local=True
     )
     if result_filepath is None:
-        logger.error(f"File Not Found for hash {hash}")
+        logger.error(f"File Not Found for hash {filehash}")
         return False, "file not found"
     return await validate_file_path_vs_extension(result_filepath, extension)
     # Get MIME type
@@ -75,9 +75,11 @@ async def validate_file_path_vs_extension(
                 # Check if the first bytes of the string are %PDF. This is not a good check but prevents the user from uploading other files accidentally.
                 with open(filepath, "rb") as f:
                     header = f.read(4)
-                    if header != b"%PDF":
-                        return False, "not a valid pdf header"
-                return True, ""
+                    if header == b"%PDF":
+                        logger.info(f"File with path {filepath} is a valid PDF")
+                        return True, "not a valid pdf header"
+                logger.error(f"Invalid PDF header for file {filepath}")
+                return False, "not a valid pdf header"
 
                 # # FIXME: This llm generated code will error out and cause random errors ince PyPDF2 is not thread safe.
                 # # Some Unknown percentage of errors on the pdf processor are caused using this bug. But hopefully mime detection
