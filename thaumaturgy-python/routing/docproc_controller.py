@@ -129,10 +129,6 @@ async def backgroundRequestDocuments(
                 + str(response)
             )
 
-        default_logger.error(response)
-        default_logger.error(response.text)
-        default_logger.error(response.status)
-        default_logger.error(response.content)
         result_json = await response.json()
 
         files = ListCompleteFileSchema.model_validate(result_json)
