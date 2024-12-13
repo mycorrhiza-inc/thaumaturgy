@@ -5,6 +5,7 @@ from common.misc_schemas import KnownFileExtension
 from util.file_io import S3FileManager
 import magic
 import chardet
+import PyPDF2
 
 default_logger = logging.getLogger(__name__)
 
@@ -67,32 +68,31 @@ async def validate_file_path_vs_extension(
 
         match extension:
             case KnownFileExtension.pdf:
+                with open(filepath, "rb") as pdf_file:
+                    header = pdf_file.read(4)
+                    if header != b"%PDF":
+                        logger.info(f"File with path {filepath} is a valid PDF")
+                        return False, "not a valid pdf header"
                 if is_text:
                     return False, "pdf is text file"
                 if file_mime != "application/pdf":
                     logger.error(f"Invalid MIME type for PDF: {file_mime}")
                     return False, "invalid mime type for pdf"
-                # Check if the first bytes of the string are %PDF. This is not a good check but prevents the user from uploading other files accidentally.
-                with open(filepath, "rb") as f:
-                    header = f.read(4)
-                    if header == b"%PDF":
-                        logger.info(f"File with path {filepath} is a valid PDF")
-                        return True, "not a valid pdf header"
-                logger.error(f"Invalid PDF header for file {filepath}")
-                return False, "not a valid pdf header"
 
                 # # FIXME: This llm generated code will error out and cause random errors ince PyPDF2 is not thread safe.
                 # # Some Unknown percentage of errors on the pdf processor are caused using this bug. But hopefully mime detection
                 # # should stop the obvious downloaded the wrong file bugs.
-                # try:
-                #     with open(result_filepath, "rb") as pdf_file:
-                #         reader = PyPDF2.PdfReader(pdf_file)
-                #         # Just accessing num_pages will validate the PDF structure
-                #         _ = len(reader.pages)
-                #     return True
-                # except Exception as e:
-                #     logger.error(f"Invalid PDF structure: {e}")
-                #     return False
+                try:
+                    with open(filepath, "rb") as pdf_file:
+                        reader = PyPDF2.PdfReader(pdf_file)
+                        # Just accessing num_pages will validate the PDF structure
+                        _ = len(reader.pages)
+                    return True, ""
+                except Exception as e:
+                    logger.error(f"Invalid PDF structure: {e}")
+                    return False, "invalid pdf structure"
+                logger.error("Unreachable code reached")
+                return False, "unreachable code reached"
 
             case KnownFileExtension.xlsx:
                 # Apparently xlsx files are actually text, who would have thunk it. XLSB are the binary versions.

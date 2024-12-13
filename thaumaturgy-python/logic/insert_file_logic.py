@@ -1,35 +1,19 @@
 from copy import copy
-from hmac import new
-import traceback
-import uuid
 from typing_extensions import Doc, Tuple
 from common.file_schemas import (
     AuthorInformation,
     CompleteFileSchema,
-    DocProcStage,
-    FileTextSchema,
-    PGStage,
     getListAuthors,
 )
-from common.misc_schemas import KnownFileExtension
 from common.niclib import download_file
 from common.task_schema import DatabaseInteraction, Task
 from common.llm_utils import KeLLMUtils, ModelName
 import os
 from pathlib import Path
 
-from sqlalchemy import select
-
-from pydantic import TypeAdapter, model_validator
 
 from uuid import UUID
 
-from common.file_schemas import (
-    DocumentStatus,
-    docstatus_index,
-)
-
-from logic.extractmarkdown import MarkdownExtractor
 
 from typing import List, Optional
 
@@ -37,8 +21,6 @@ from typing import List, Optional
 # from routing.file_controller import QueryData
 
 import json
-from common.niclib import rand_string
-from logic.llm_extras import ExtraGenerator
 from util.file_io import S3FileManager
 
 # import base64

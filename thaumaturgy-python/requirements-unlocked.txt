@@ -11,6 +11,7 @@ llama-index-embeddings-octoai
 
 python-magic
 chardet
+PyPDF2
 
 uvicorn
 litestar
