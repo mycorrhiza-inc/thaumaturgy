@@ -7,12 +7,13 @@ from common.file_schemas import ConversationInformation, DocumentStatus
 
 import logging
 from daemon_state import STARTUP_DAEMON_STATE, DaemonState, validateAllValuesDefined
-from logic.file_logic import (
+from logic.insert_file_logic import (
     add_url_raw,
-    process_file_raw,
     upsert_full_file_to_db,
     validate_and_rectify_file_extension,
 )
+from logic.process_file_logic import process_file_raw
+
 import asyncio
 import redis
 from util.redis_utils import (
@@ -149,6 +150,9 @@ def initialize_background_loops() -> None:
 
 
 async def execute_task(task: Task, config: DaemonState) -> None:
+    assert config.insert_process_task_after_ingest is not None
+    assert config.insert_process_to_front_of_queue is not None
+    assert config.disable_ingest_if_hash_identified is not None
     increment_doc_counter(1, redis_client=redis_client)
     logger = default_logger
     # logger.info(f"Executing task of type {task.task_type.value}: {task.id}")

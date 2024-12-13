@@ -1,7 +1,6 @@
 import boto3
 from pydantic import BaseModel
 
-from common.niclib import seperate_markdown_string
 import yaml
 from common.niclib import rand_string, rand_filepath
 
@@ -34,6 +33,8 @@ from constants import (
     S3_ENDPOINT,
     S3_FILE_BUCKET,
 )
+
+import asyncio
 
 default_logger = logging.getLogger(__name__)
 
@@ -113,22 +114,6 @@ class S3FileManager:
         self.logger.info(f"Backing up metadata to: {savedir}")
         return backup_metadata_to_filepath(metadata, savedir)
 
-    def write_tmpfile_to_path(self, tmp: Any, path: Path):
-        path.parent.mkdir(exist_ok=True, parents=True)
-        self.logger.info("Seeking to beginning of file")
-        # Seek to the beginning of the file
-        tmp.seek(0)
-        self.logger.info("Attempting to read file contents")
-        # Read the file contents
-        try:
-            file_contents = tmp.read()
-            self.logger.info("Attempting to write contents to permanent file")
-            # Write the file contents to the desired path
-            with open(path, "wb") as dest_file:
-                dest_file.write(file_contents)
-        except Exception as e:
-            self.logger.info(f"The error is: {e}")
-
     def get_blake2_str(
         self, file_input: Path
     ) -> str:  # TODO: Figure out how df file types work
@@ -194,6 +179,13 @@ class S3FileManager:
 
     def hash_to_fileid(self, hash: str) -> str:
         return self.s3_raw_directory + hash
+
+    async def generate_local_filepath_from_hash_async(
+        self, hash: str, ensure_network: bool = True, download_local: bool = True
+    ) -> Optional[Path]:
+        return await asyncio.to_thread(
+            self.generate_local_filepath_from_hash, hash, ensure_network, download_local
+        )
 
     def generate_local_filepath_from_hash(
         self, hash: str, ensure_network: bool = True, download_local: bool = True
