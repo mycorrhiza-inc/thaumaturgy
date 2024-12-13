@@ -261,6 +261,9 @@ async def process_file_raw(
             logger.error(tb)
             obj.stage = DocProcStage(
                 pg_stage=PGStage.ERRORED,
+                database_error_msg="",
+                ingest_error_msg=obj.stage.ingest_error_msg,
+                skip_processing=obj.stage.skip_processing,
                 processing_error_msg="Encountered Processing Error: " + str(e),
                 docproc_stage=current_stage,
                 is_errored=True,
