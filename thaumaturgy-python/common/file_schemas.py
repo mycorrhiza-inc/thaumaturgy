@@ -47,8 +47,10 @@ class DocumentStatus(str, Enum):
 class DocProcStage(BaseModel):
     pg_stage: PGStage
     docproc_stage: DocumentStatus
-    is_errored: bool
-    is_completed: bool
+    skip_processing: bool = False
+    is_errored: bool = False
+    is_completed: bool = False
+    ingest_error_msg: str = ""
     processing_error_msg: str = ""
     database_error_msg: str = ""
 
@@ -56,6 +58,7 @@ class DocProcStage(BaseModel):
 NEWDOCSTAGE = DocProcStage(
     pg_stage=PGStage.PENDING,
     docproc_stage=DocumentStatus.unprocessed,
+    skip_processing=False,
     is_errored=False,
     is_completed=False,
 )

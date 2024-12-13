@@ -56,7 +56,10 @@ import aiohttp
 
 import logging
 
-from logic.file_validation import validate_and_rectify_file_extension
+from logic.file_validation import (
+    validate_and_rectify_file_extension,
+    validate_file_path_vs_extension,
+)
 
 default_logger = logging.getLogger(__name__)
 
@@ -92,7 +95,7 @@ async def process_file_raw(
     if file_path is None:
         raise Exception(f"File Must Not exist for hash {obj.hash}")
 
-    def process_stage_handle_extension():
+    async def process_stage_handle_extension():
         valid_extension = None
         try:
             valid_extension = KnownFileExtension(obj.extension)
@@ -107,6 +110,14 @@ async def process_file_raw(
             raise Exception(
                 f"Unable to get proper file extension even after trying to rectify, please fix: {obj.extension}"
             )
+        valid_file, error = await validate_file_path_vs_extension(
+            file_path, valid_extension
+        )
+        if not valid_file:
+            obj.stage.ingest_error_msg = error
+            obj.stage.skip_processing = True
+            raise Exception(f"File does not match extension: {obj.extension}, {error}")
+
         obj.extension = valid_extension.value
         if valid_extension == KnownFileExtension.xlsx:
             #
@@ -227,7 +238,7 @@ async def process_file_raw(
                 case DocumentStatus.unprocessed:
                     # Mark that an attempt to process the document starting at stage 1
                     # TODO: Add new stage for file validation, now just using unprocessed.
-                    current_stage = process_stage_handle_extension()
+                    current_stage = await process_stage_handle_extension()
                 case DocumentStatus.stage1:
                     current_stage = await process_stage_one()
                 case DocumentStatus.stage2:
