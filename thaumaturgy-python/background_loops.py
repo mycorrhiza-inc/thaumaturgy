@@ -308,6 +308,10 @@ async def process_existing_file(task: Task) -> None:
     obj = task.obj
     assert isinstance(obj, CompleteFileSchema)
     logger = default_logger
+
+    if obj.stage.skip_processing:
+        logger.info(f"Skipping file tag is true, skipping file: {obj.id}")
+        return None
     try:
         error, result_file = await process_file_raw(
             obj, stop_at=DocumentStatus.completed, priority=task.priority
