@@ -50,15 +50,32 @@ async def validate_file_path_vs_extension(
 ) -> Tuple[bool, str]:
     logger = default_logger
 
+    def is_text_file(filepath: Path) -> bool:
+        try:
+            with open(filepath, "rb") as text_file:
+                raw_data = text_file.read()
+                # Try to detect the encoding
+                result = chardet.detect(raw_data)
+                # Try to decode the content
+                raw_data.decode(result["encoding"] or "utf-8")
+            return True
+        except Exception as e:
+            default_logger.error(f"Invalid text file structure: {e}")
+            return False
+
     try:
         mime = magic.Magic(mime=True)
         file_mime = mime.from_file(filepath)
+        is_text = is_text_file(filepath)
 
         match extension:
             case KnownFileExtension.pdf:
+                if is_text:
+                    return False, "pdf is text file"
                 if file_mime != "application/pdf":
                     logger.error(f"Invalid MIME type for PDF: {file_mime}")
                     return False, "invalid mime type for pdf"
+                return True, ""
 
                 # # FIXME: This llm generated code will error out and cause random errors ince PyPDF2 is not thread safe.
                 # # Some Unknown percentage of errors on the pdf processor are caused using this bug. But hopefully mime detection
@@ -74,12 +91,16 @@ async def validate_file_path_vs_extension(
                 #     return False
 
             case KnownFileExtension.xlsx:
+                # Apparently xlsx files are actually text, who would have thunk it. XLSB are the binary versions.
+                # if is_text:
+                #     return False, "xlsx is text file"
                 if (
                     file_mime
                     != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 ):
                     logger.error(f"Invalid MIME type for XLSX: {file_mime}")
                     return False, "invalid mime type for xlsx"
+                return True, ""
 
                 # # Try to open and read the XLSX
                 # try:
@@ -93,24 +114,17 @@ async def validate_file_path_vs_extension(
             case (
                 KnownFileExtension.html | KnownFileExtension.md | KnownFileExtension.txt
             ):
+                if not is_text:
+                    return False, "text file is not a proper text encoding"
                 # Check if it's a text file
                 if not file_mime.startswith("text/"):
                     default_logger.error(f"Not a text file. MIME type: {file_mime}")
                     return False, "invalid mime type for text file"
+                return True, ""
 
-                # Try to detect the encoding and read the file
-                try:
-                    with open(filepath, "rb") as text_file:
-                        raw_data = text_file.read()
-                        # Try to detect the encoding
-                        result = chardet.detect(raw_data)
-                        # Try to decode the content
-                        raw_data.decode(result["encoding"] or "utf-8")
-                    return True, ""
-                except Exception as e:
-                    default_logger.error(f"Invalid text file structure: {e}")
-                    return False, "invalid text encoding"
-        return True, ""
+        logger.error("Unreachable code reached")
+        return False, "encountered unreachable code"
+
     except Exception as e:
         default_logger.error(f"Error validating file: {e}")
         return False, f"error validating file: {e}"
