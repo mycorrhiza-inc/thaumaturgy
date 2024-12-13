@@ -54,10 +54,7 @@ async def validate_file_path_vs_extension(
         try:
             with open(filepath, "rb") as text_file:
                 raw_data = text_file.read()
-                # Try to detect the encoding
-                result = chardet.detect(raw_data)
-                # Try to decode the content
-                raw_data.decode(result["encoding"] or "utf-8")
+                raw_data.decode("utf-8")
             return True
         except Exception as e:
             default_logger.error(f"Invalid text file structure: {e}")
@@ -75,6 +72,11 @@ async def validate_file_path_vs_extension(
                 if file_mime != "application/pdf":
                     logger.error(f"Invalid MIME type for PDF: {file_mime}")
                     return False, "invalid mime type for pdf"
+                # Check if the first bytes of the string are %PDF. This is not a good check but prevents the user from uploading other files accidentally.
+                with open(filepath, "rb") as f:
+                    header = f.read(4)
+                    if header != b"%PDF":
+                        return False, "not a valid pdf header"
                 return True, ""
 
                 # # FIXME: This llm generated code will error out and cause random errors ince PyPDF2 is not thread safe.
