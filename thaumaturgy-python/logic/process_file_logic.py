@@ -56,7 +56,7 @@ import aiohttp
 
 import logging
 
-from logic.insert_file_logic import validate_and_rectify_file_extension
+from logic.file_validation import validate_and_rectify_file_extension
 
 default_logger = logging.getLogger(__name__)
 

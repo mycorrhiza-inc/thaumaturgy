@@ -177,27 +177,6 @@ async def split_author_field_into_authordata(
     return author_info_list
 
 
-def validate_and_rectify_file_extension(
-    raw_extension: str,
-) -> Tuple[Optional[KnownFileExtension], str]:
-    logger = default_logger
-    raw_extension = raw_extension.strip()
-    raw_extension = raw_extension.lower()
-
-    # Handle extensions with file size like "pdf (148 KB)"
-    if "(" in raw_extension:
-        raw_extension = raw_extension.split("(")[0].strip()
-
-    try:
-        extension = KnownFileExtension(raw_extension)
-        return extension, raw_extension
-    except Exception as e:
-        logger.error(
-            f"Could not validate extension: {raw_extension}, raised error: {e}"
-        )
-        return None, raw_extension
-
-
 async def add_file_raw(
     tmp_filepath: Path,
     file_obj: CompleteFileSchema,

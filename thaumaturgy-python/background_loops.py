@@ -10,8 +10,9 @@ from daemon_state import STARTUP_DAEMON_STATE, DaemonState, validateAllValuesDef
 from logic.insert_file_logic import (
     add_url_raw,
     upsert_full_file_to_db,
-    validate_and_rectify_file_extension,
 )
+
+from logic.file_validation import validate_and_rectify_file_extension
 from logic.process_file_logic import process_file_raw
 
 import asyncio
