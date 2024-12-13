@@ -239,7 +239,9 @@ async def add_file_raw(
     file_obj.mdata = validate_metadata_mutable(file_obj.mdata)
 
     logger.info("Attempting to save data to file")
-    result = file_manager.save_filepath_to_hash(tmp_filepath, OS_HASH_FILEDIR)
+    result = await file_manager.save_filepath_to_hash_async(
+        tmp_filepath, OS_HASH_FILEDIR
+    )
     file_obj.hash = result.hash
 
     os.remove(tmp_filepath)

@@ -71,6 +71,13 @@ class S3FileManager:
         self.bucket = S3_FILE_BUCKET
         self.s3_raw_directory = "raw/"
 
+    async def save_filepath_to_hash_async(
+        self, filepath: Path, hashpath: Optional[Path] = None, network: bool = True
+    ) -> SaveFilepathToHashResult:
+        return await asyncio.to_thread(
+            self.save_filepath_to_hash, filepath, hashpath, network
+        )
+
     def save_filepath_to_hash(
         self, filepath: Path, hashpath: Optional[Path] = None, network: bool = True
     ) -> SaveFilepathToHashResult:
