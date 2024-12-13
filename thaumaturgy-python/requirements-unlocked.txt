@@ -9,6 +9,8 @@ llama_index.vector_stores.milvus
 llama-index-embeddings-octoai
 
 
+python-magic
+chardet
 
 uvicorn
 litestar
