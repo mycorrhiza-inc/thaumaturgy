@@ -80,7 +80,6 @@ async def upsert_full_file_to_db(
     else:
         return obj
     json_data_string = obj.model_dump_json()
-    logger.info(json_data_string)
     # for _ in range(3):
     errors = []
     async with aiohttp.ClientSession() as session:
@@ -90,8 +89,6 @@ async def upsert_full_file_to_db(
                 try:
                     response_json = await response.json()
                     # Validate and cast to CompleteFileSchema
-                    logger.info("File uploaded to db")
-                    logger.info(response_json)
                 except (ValueError, TypeError, KeyError) as e:
                     print(f"Failed to parse JSON: {e}")
                     raise Exception(f"Failed to parse JSON: {e}")
