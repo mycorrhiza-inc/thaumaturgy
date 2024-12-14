@@ -133,7 +133,9 @@ async def process_file_raw(
                 )
             )
         except Exception as e:
-            obj.stage.skip_processing = True
+            e_str = str(e)
+            if "format error" in e_str:
+                obj.stage.skip_processing = True
             raise e
         logger.info(
             f"Successfully processed original text: {
@@ -174,6 +176,7 @@ async def process_file_raw(
                     )
                 )
             except Exception as e:
+
                 raise Exception(
                     "failure in stage 2: \ndocument was unable to be translated to english.",
                     e,
