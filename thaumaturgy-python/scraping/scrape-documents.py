@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class RowData(BaseModel):
+class FileScrapeNYPUCInfo(BaseModel):
     serial: str
     date_filed: str
     nypuc_doctype: str
@@ -27,12 +27,12 @@ class RowData(BaseModel):
     docket_id: str
 
 
-class FilingObject(BaseModel):
+class NYPUCFilingObject(BaseModel):
     case: str
-    filings: List[RowData]
+    filings: List[FileScrapeNYPUCInfo]
 
 
-class DocketInfo(BaseModel):
+class NYPUCDocketInfo(BaseModel):
     docket_id: str  # 24-C-0663
     matter_type: str  # Complaint
     matter_subtype: str  # Appeal of an Informal Hearing Decision
@@ -49,7 +49,7 @@ class DocketProcessor:
         self.driver = driver
         self.base_url = base_url
 
-    def process_docket(self, docket_info: DocketInfo) -> Optional[FilingObject]:
+    def process_docket(self, docket_info: NYPUCDocketInfo) -> Optional[NYPUCFilingObject]:
         """Main method to process a docket and return filings"""
         try:
             url = self._construct_url(docket_info.docket_id)
@@ -77,7 +77,7 @@ class DocketProcessor:
             logger.error(f"Timeout waiting for docket page to load: {url}")
             return False
 
-    def _extract_and_process_filings(self, docket_id: str) -> FilingObject:
+    def _extract_and_process_filings(self, docket_id: str) -> NYPUCFilingObject:
         """Extract filings from the page and process them"""
         try:
             filing_object = self._extract_filings(docket_id)
@@ -90,7 +90,7 @@ class DocketProcessor:
             logger.error(f"Error processing filings for docket {docket_id}: {e}")
             raise
 
-    def _extract_filings(self, docket_id: str) -> FilingObject:
+    def _extract_filings(self, docket_id: str) -> NYPUCFilingObject:
         """Extract filings data from the page table"""
         filings = []
         table = self.driver.find_element(By.ID, "tblPubDoc")
@@ -101,14 +101,14 @@ class DocketProcessor:
             except Exception as e:
                 logger.warning(f"Skipping invalid row in docket {docket_id}: {e}")
 
-        return FilingObject(case=docket_id, filings=filings)
+        return NYPUCFilingObject(case=docket_id, filings=filings)
 
-    def _parse_row(self, row, docket_id: str) -> RowData:
-        """Parse a single table row into RowData"""
+    def _parse_row(self, row, docket_id: str) -> FileScrapeNYPUCInfo:
+        """Parse a single table row into FileScrapeNYPUCInfo"""
         cells = row.find_elements(By.TAG_NAME, "td")
         link = cells[3].find_element(By.TAG_NAME, "a")
 
-        return RowData(
+        return FileScrapeNYPUCInfo(
             serial=cells[0].text.strip(),
             date_filed=cells[1].text.strip(),
             nypuc_doctype=cells[2].text.strip(),
@@ -120,7 +120,7 @@ class DocketProcessor:
             docket_id=docket_id,
         )
 
-    def _save_filings(self, filing_object: FilingObject):
+    def _save_filings(self, filing_object: NYPUCFilingObject):
         """Save processed filings to JSON file"""
         filename = f"filings_{filing_object.case}.json"
         with open(filename, "w") as f:
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     driver = webdriver.Chrome()
     processor = DocketProcessor(driver)
 
-    sample_docket = DocketInfo(
+    sample_docket = NYPUCDocketInfo(
         docket_id="24-C-0663",
         matter_type="Complaint",
         matter_subtype="Appeal of an Informal Hearing Decision",
