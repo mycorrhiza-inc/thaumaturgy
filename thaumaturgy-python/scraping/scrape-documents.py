@@ -1,28 +1,18 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-
-import requests
-import argparse
-
-
-from urllib.parse import urlparse, parse_qs
-
+from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from typing import List, Optional
-import time
 import json
+import logging
 
 from pydantic import BaseModel
 
-import os
-
-import aiohttp
-
-import asyncio
-
-
-defaultDriver = webdriver.Chrome()
-
-pageData = {}
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class RowData(BaseModel):
@@ -35,15 +25,6 @@ class RowData(BaseModel):
     itemNo: str
     file_name: str
     docket_id: str
-
-    def __str__(self):
-        return f"\n(\n\tSerial: {self.serial}\n\tDate Filed: {self.date_filed}\
-        \n\tNY PUC Doc Type: {self.nypuc_doctype}\n\tName: {self.name}\n\tURL: \
-        {self.url}\nOrganization: {self.organization}\n\tItem No: {self.itemNo}\n\
-        \tFile Name: {self.file_name}\n)\n"
-
-    def __repr__(self):
-        return self.__str__()
 
 
 class FilingObject(BaseModel):
@@ -61,377 +42,130 @@ class DocketInfo(BaseModel):
     date_filed: str  # 12/13/2022
 
 
-def extractRows(driver, graph, case):
-    table = driver.find_element(By.ID, "tblPubDoc")
-    body = table.find_element(By.TAG_NAME, "tbody")
-    rows = body.find_elements(By.TAG_NAME, "tr")
-    filings = {"case": case, "filings": []}
-    for row in rows:
-        filing_item = None
+class DocketProcessor:
+    def __init__(
+        self, driver: WebDriver, base_url: str = "https://example.gov/CaseMaster.aspx"
+    ):
+        self.driver = driver
+        self.base_url = base_url
+
+    def process_docket(self, docket_info: DocketInfo) -> Optional[FilingObject]:
+        """Main method to process a docket and return filings"""
         try:
-            # print(row)
-            cells = row.find_elements(By.TAG_NAME, "td")
-            linkcell = cells[3]
-            link = linkcell.find_element(By.TAG_NAME, "a")
-            # print(f"link: {link}")
-            name = link.text
-            href = link.get_attribute("href")
-            # print(f"href: {href}")
-            # skip if the filing has already been indexed
-            # if graph.pages[href].visited:
-            #     continue
+            url = self._construct_url(docket_info.docket_id)
+            if not self._navigate_to_docket(url):
+                return None
 
-            filing_item = RowData(
-                serial=cells[0].text,
-                date_filed=cells[1].text,
-                nypuc_doctype=cells[2].text,
-                docket_id=case,
-                name=name,
-                url=href,
-                organization=cells[4].text,
-                itemNo=cells[5].text,
-                file_name=cells[6].text,
-            )
-            filings["filings"].append(filing_item.__dict__)
+            return self._extract_and_process_filings(docket_info.docket_id)
         except Exception as e:
-            print(
-                "Encountered a fatal error while processing a row: ",
-                row,
-                "\nencountering error: ",
-                e,
-            )
-    # print(f"Found filings:\n {filings}")
-    save_process_filing_object(filings)
-    return filings
-
-
-def save_process_filing_object(filing_object, filename: Optional[str] = None):
-    # save_filing_object(filing_object, filename)
-    # verify_docket_id(filing_object["case"])
-    # process_filing_object(filing_object)
-
-
-def processURL(driver, url):
-    time.sleep(6)
-    # Find all <a> tags on the page
-    links = driver.find_elements(By.TAG_NAME, "a")
-    # Extract the href attribute from each link
-    all_links = [link.get_attribute("href") for link in links]
-
-    return all_links
-
-
-# caseLoaded = "<div id=\"GridPlaceHolder_upUpdatePanelGrd\" \
-# style=\"display: none;\"role=\"status\" aria-hidden=\"true\">"
-
-
-def waitForLoad(driver):
-    max_wait = 60
-    print("waiting for page to load")
-    for i in range(max_wait):
-        overlay = driver.find_element(By.ID, "GridPlaceHolder_upUpdatePanelGrd")
-        display = overlay.get_attribute("style")
-        if display == "display: none;":
-            print("Page Loaded")
-            return True
-        time.sleep(1)
-
-    print("pageload took waaaay too long")
-    return False
-
-
-class Page:
-    def __init__(cls, url, graph):
-        cls.url = url
-        cls.graph = graph
-        cls.visited = False
-        cls.links = []
-        cls.assets = []
-
-    def addLink(cls, link):
-        if link not in cls.links:
-            cls.links.append(link)
-
-    def caseID(cls):
-        # Parse the URL
-        parsed_url = urlparse(cls.url)
-
-        # Extract query parameters as a dictionary
-        query_params = parse_qs(parsed_url.query)
-
-        # Get the value of a specific key (e.g., 'key')
-        key_value = query_params.get("MatterCaseNo", [None])[0]
-        if key_value is None:
+            self._handle_error(docket_info.docket_id, e)
             return None
-        return key_value
 
-    def Process(cls):
-        if cls.visited:
-            return
-        # Get all the links on the page
+    def _construct_url(self, docket_id: str) -> str:
+        """Construct the URL for a docket page"""
+        return f"{self.base_url}?MatterCaseNo={docket_id}"
 
-        defaultDriver.get(cls.url)
-        waitForLoad(defaultDriver)
-        # all_links = processURL(defaultDriver, cls.url)
-        # for link in all_links:
-        #     cls.addLink(link)
-        #     cls.graph.addLink(link)
+    def _navigate_to_docket(self, url: str, timeout: int = 30) -> bool:
+        """Navigate to docket URL and wait for page load"""
+        try:
+            self.driver.get(url)
+            WebDriverWait(self.driver, timeout).until(
+                EC.presence_of_element_located((By.ID, "tblPubDoc"))
+            )
+            return True
+        except TimeoutException:
+            logger.error(f"Timeout waiting for docket page to load: {url}")
+            return False
 
-        caseId = cls.caseID()
-        # print(f"Have CaseID: {caseId}")
-        if caseId is not None:
+    def _extract_and_process_filings(self, docket_id: str) -> FilingObject:
+        """Extract filings from the page and process them"""
+        try:
+            filing_object = self._extract_filings(docket_id)
+            self._save_filings(filing_object)
+            return filing_object
+        except NoSuchElementException as e:
+            logger.error(f"Missing expected page elements for docket {docket_id}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error processing filings for docket {docket_id}: {e}")
+            raise
+
+    def _extract_filings(self, docket_id: str) -> FilingObject:
+        """Extract filings data from the page table"""
+        filings = []
+        table = self.driver.find_element(By.ID, "tblPubDoc")
+
+        for row in table.find_elements(By.CSS_SELECTOR, "tbody tr"):
             try:
-                rowData = extractRows(defaultDriver, cls.graph, case=caseId)
-                cls.graph.addCase(caseId, rowData)
+                filings.append(self._parse_row(row, docket_id))
             except Exception as e:
-                print(f"Error with case {caseId}: {e}\n")
-                print("Saving Error info to files\n")
-                # Save errored case ID to list
-                try:
-                    with open("errored_cases.json", "r") as f:
-                        errored_cases = json.load(f)
-                except (FileNotFoundError, json.JSONDecodeError):
-                    errored_cases = []
+                logger.warning(f"Skipping invalid row in docket {docket_id}: {e}")
 
-                if caseId not in errored_cases:
-                    errored_cases.append(caseId)
+        return FilingObject(case=docket_id, filings=filings)
 
-                with open("errored_cases.json", "w") as f:
-                    json.dump(errored_cases, f)
+    def _parse_row(self, row, docket_id: str) -> RowData:
+        """Parse a single table row into RowData"""
+        cells = row.find_elements(By.TAG_NAME, "td")
+        link = cells[3].find_element(By.TAG_NAME, "a")
 
-                # Save detailed error info
-                try:
-                    with open("error_details.json", "r") as f:
-                        error_details = json.load(f)
-                except (FileNotFoundError, json.JSONDecodeError):
-                    error_details = []
+        return RowData(
+            serial=cells[0].text.strip(),
+            date_filed=cells[1].text.strip(),
+            nypuc_doctype=cells[2].text.strip(),
+            name=link.text.strip(),
+            url=link.get_attribute("href").strip(),
+            organization=cells[4].text.strip(),
+            itemNo=cells[5].text.strip(),
+            file_name=cells[6].text.strip(),
+            docket_id=docket_id,
+        )
 
-                error_details.append(
-                    {"case_id": caseId, "error": str(e), "error_type": type(e).__name__}
-                )
-
-                with open("error_details.json", "w") as f:
-                    json.dump(error_details, f)
-                # Print the error to
-
-        cls.visited = True
-
-    def __str__(cls):
-        return f"==========\nPage: {cls.url}\nVisited: {cls.visited}\nLinks: {cls.links}\nAssets: {cls.assets}"
-
-
-def checkIfCasePage(url):
-    if "CaseMaster.aspx" in url:
-        return True
-    return False
-
-
-def checkIfDocumentPage(url):
-    if "ViewDoc.aspx" in url:
-        return True
-    return False
-
-
-class SiteGraph:
-    def __init__(cls, driver=defaultDriver):
-        cls.driver = driver
-        cls.pages = {}
-        cls.caseData: dict = {}
-
-    def Crawl(cls):
-        for url in list(cls.pages):
-            page = cls.pages[url]
-            if page.visited:
-                continue
-            page.Process()
-
-    def addLink(cls, link):
-        # Check if the link is already in the list
-        print(f"Adding link: {link}")
-        newPage = Page(link, cls)
-        if link not in cls.pages:
-            cls.pages[link] = newPage
-
-    def processLink(cls, link):
-        # if the page is none add the the link to the dict then process it
-        if cls.pages[link] is None:
-
-            return
-
-    def addCase(cls, case, data):
-        cls.caseData[case] = data
-
-    def LoadSiteState(cls):
-        pass
-
-    def SaveSiteState(cls, filename="links.json"):
+    def _save_filings(self, filing_object: FilingObject):
+        """Save processed filings to JSON file"""
+        filename = f"filings_{filing_object.case}.json"
         with open(filename, "w") as f:
-            json.dump(cls.caseData, f)
+            json.dump(filing_object.dict(), f, indent=2)
+        logger.info(f"Saved {len(filing_object.filings)} filings to {filename}")
 
-    def Seed(cls, urls: List[str]):
-        for url in urls:
-            cls.addLink(url)
+    def _handle_error(self, docket_id: str, error: Exception):
+        """Handle errors and log them"""
+        error_info = {
+            "docket_id": docket_id,
+            "error_type": type(error).__name__,
+            "message": str(error),
+        }
 
-    def dumpLinks(cls):
-        for page in cls.pages:
-            print(cls.pages[page])
+        logger.error(f"Error processing docket {docket_id}: {error}")
 
-
-def get_all_cases_from_json(
-    input_filename: str, exclude_cases_filename: str, after_number: int = 0
-) -> List[str]:
-    with open(input_filename, "r") as f:
-        initial_file_list = json.load(f)
-
-    try:
-        with open(exclude_cases_filename, "r") as f:
-            exclude_cases = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        exclude_cases = []
-
-    filtered_list = [case for case in initial_file_list if case not in exclude_cases]
-    return filtered_list[after_number:]
+        # Save error details
+        try:
+            with open("error_log.json", "a") as f:
+                json.dump(error_info, f)
+                f.write("\n")
+        except Exception as e:
+            logger.error(f"Failed to save error log: {e}")
 
 
-# def extract_all_recovered_filing_objects():
-#     json_artifact_folder = Path("./json-artifacts/")
-#
-#     # Walk through all files in directory
-#     for filename in os.listdir(json_artifact_folder):
-#         if not filename.endswith(".json"):
-#             continue
-#
-#         filepath = os.path.join(json_artifact_folder, filename)
-#
-#         try:
-#             # Load JSON file
-#             with open(filepath, "r") as f:
-#                 filing_data = FilingObject.model_validate_json(f.read())
-#                 # Verify and process if valid
-#                 process_filing_object(filing_data)
-#
-#         except Exception as e:
-#             print(f"Error processing {filename}: {str(e)}")
+# Usage Example
+if __name__ == "__main__":
+    driver = webdriver.Chrome()
+    processor = DocketProcessor(driver)
 
+    sample_docket = DocketInfo(
+        docket_id="24-C-0663",
+        matter_type="Complaint",
+        matter_subtype="Appeal of an Informal Hearing Decision",
+        industry_affected="Utilities",
+        title="In the Matter of the Rules and Regulations of the Public Service",
+        organization="Individual",
+        date_filed="12/13/2022",
+    )
 
-# if __name__ == "__main__":
-#     asyncio.run(verify_all_docket_ids("all_dockets.json"))
-# extract_all_recovered_filing_objects()
+    result = processor.process_docket(sample_docket)
 
+    if result:
+        print(f"Processed {len(result.filings)} filings for docket {result.case}")
+    else:
+        print("Failed to process docket")
 
-# def save_filing_object(filing_object, filename: Optional[str] = None):
-#     if filename is None:
-#         filename = f'filing-{filing_object["case"]}.json'
-#     with open(filename, "w") as f:
-#         json.dump(filing_object, f)
-#
-#
-# def process_filing_object(filing_object):
-#     # assert (
-#     #     False
-#     # ), "Everything was successfull, not processing the file out of an abundance of caution"
-#     filings = filing_object.filings
-#     api_url = (
-#         "https://thaum.kessler.xyz/v1/process-scraped-doc/ny-puc/list?priority=false"
-#     )
-#     jsonable_filings = [file.dict() for file in filings]
-#     response = requests.post(api_url, json=jsonable_filings)
-#     if response.status_code != 201:
-#         raise Exception(
-#             f"Failed to process filing object. Status code: {response.status_code}, Response: {response.text}"
-#         )
-
-
-# async def verify_docket_id(docket: DocketInfo):
-#     obj = {
-#         "docket_gov_id": docket.docket_id,
-#         "state": "ny",
-#         "name": docket.title,
-#         "description": "",
-#         "matter_type": docket.matter_type,
-#         "industry_type": docket.industry_affected,
-#         "metadata": str(docket.model_dump_json()),
-#         "extra": "",
-#         "date_published": datetime.strptime(docket.date_filed, "%m/%d/%Y").strftime(
-#             "%Y-%m-%dT%H:%M:%SZ"
-#         ),
-#     }
-#     api_url = "http://localhost/v2/public/conversations/verify"
-#
-#     print(f"Verifying docket ID {docket.docket_id}")
-#     async with aiohttp.ClientSession() as session:
-#         async with session.post(api_url, json=obj) as response:
-#             if response.status != 200:
-#                 print(f"Failed verification for docket ID {docket.docket_id}")
-#                 raise Exception(
-#                     f"Failed to verify docket ID. Status code: {response.status}\nResponse:\n{await response.text()}"
-#                 )
-#
-#             print(
-#                 f"Successfully verified docket ID {docket.docket_id}: \n Response: {await response.text()}\n"
-#             )
-#             return await response.json()
-#
-#
-# async def verify_all_docket_ids(filename: str):
-#     with open(filename, "r") as f:
-#         initial_file_list = json.load(f)
-#     promises = []
-#     batch_size = 100
-#
-#     for i in range(0, len(initial_file_list), batch_size):
-#         batch = initial_file_list[i : i + batch_size]
-#         batch_promises = []
-#
-#         for obj in batch:
-#             try:
-#                 docket = DocketInfo.model_validate(obj)
-#                 batch_promises.append(verify_docket_id(docket))
-#             except Exception as e:
-#                 print(
-#                     f"Error verifying docket ID: {obj['docket_id']} encountered: {e}\n"
-#                 )
-#
-#         await asyncio.gather(*batch_promises)
-# if __name__ == "__main__":
-#     # test : "22-M-0149"
-#     parser = argparse.ArgumentParser(
-#         description="selenium based \
-#                                      NYPUC case parser"
-#     )
-#     # Add flags/arguments
-#     parser.add_argument("-o", "--output", type=str, help="json file to save the data")
-#     parser.add_argument("-i", "--input", type=str, help="Specify the input cases")
-#     parser.add_argument("-c", "--cases", type=str, help="comma separated list of cases")
-#
-#     # Parse the arguments
-#     args = parser.parse_args()
-#
-#     # Use the flags in your script
-#
-#     graph = SiteGraph()
-#     # cases = ["22-M-0645"]
-#     cases = get_all_cases_from_json(
-#         input_filename="output_cases.json",
-#         exclude_cases_filename="already_processed.jso n",
-#         after_number=0,
-#     )
-#
-#     # Already processed 24-E-0165 22-M-0645 18-E-0138
-#     # To process:
-#     # if args.cases:
-#     #     caseCodes = args.cases.split(',')
-#     #     for cc in caseCodes:
-#     #         cases.append(
-#     #             f"https://documents.dps.ny.gov/public/MatterManagement/CaseMaster.aspx?MatterCaseNo={cc}")
-#     #     graph.Seed(cases)
-#
-#     for case in cases:
-#         graph.addLink(
-#             f"https://documents.dps.ny.gov/public/MatterManagement/CaseMaster.aspx?MatterCaseNo={case}"
-#         )
-#
-#     graph.Crawl()
-#
-#     if args.output:
-#         graph.SaveSiteState(args.output)
+    driver.quit()
