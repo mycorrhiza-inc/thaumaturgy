@@ -9,37 +9,11 @@ import json
 import logging
 
 from pydantic import BaseModel
+from scraping.nypuc_types import NYPUCDocketInfo, NYPUCFilingObject
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-class FileScrapeNYPUCInfo(BaseModel):
-    serial: str
-    date_filed: str
-    nypuc_doctype: str
-    name: str
-    url: str
-    organization: str
-    itemNo: str
-    file_name: str
-    docket_id: str
-
-
-class NYPUCFilingObject(BaseModel):
-    case: str
-    filings: List[FileScrapeNYPUCInfo]
-
-
-class NYPUCDocketInfo(BaseModel):
-    docket_id: str  # 24-C-0663
-    matter_type: str  # Complaint
-    matter_subtype: str  # Appeal of an Informal Hearing Decision
-    industry_affected: str
-    title: str  # In the Matter of the Rules and Regulations of the Public Service
-    organization: str  # Individual
-    date_filed: str  # 12/13/2022
 
 
 class DocketProcessor:
@@ -49,7 +23,9 @@ class DocketProcessor:
         self.driver = driver
         self.base_url = base_url
 
-    def process_docket(self, docket_info: NYPUCDocketInfo) -> Optional[NYPUCFilingObject]:
+    def process_docket(
+        self, docket_info: NYPUCDocketInfo
+    ) -> Optional[NYPUCFilingObject]:
         """Main method to process a docket and return filings"""
         try:
             url = self._construct_url(docket_info.docket_id)
