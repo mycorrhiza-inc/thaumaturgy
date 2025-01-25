@@ -14,6 +14,7 @@ from .file_schemas import CompleteFileSchema
 class TaskType(str, Enum):
     add_file_scraper = "add_file_scraper"
     process_existing_file = "process_existing_file"
+    add_nypuc_conversation_docket = "add_nypuc_conversation_docket"
 
 
 class DatabaseInteraction(str, Enum):
@@ -42,51 +43,6 @@ class Task(BaseModel):
     followup_task_id: Optional[uuid.UUID] = None
     followup_task_url: Optional[str] = None
     obj: Any
-
-
-class DocTextInfo(BaseModel):
-    language: str
-    text: str
-    is_original_text: bool
-
-
-class ScraperInfo(BaseModel):
-    file_url: str = ""  # throw a get request at this url to get the file
-    text: str = ""  # Or get the text content from this field
-    hash: str = ""  # Or get the file corrosponding to this hash from s3
-    name: str = ""
-    published_date: str = ""
-    internal_source_name: str = ""
-    docket_id: str = ""
-    state: str = ""
-    author_individual: str = ""
-    author_individual_email: str = ""
-    author_organisation: str = ""
-    file_class: str = ""  # Decision, Public Comment, etc
-    file_type: str = ""  # PDF, DOCX, etc
-    lang: str = ""  # defaults to "en" unless otherwise specified
-    item_number: str = ""
-
-
-class BulkProcessInfo(BaseModel):
-    generate_report: bool = False
-    report_id: str = ""
-    database_interaction: DatabaseInteraction = (
-        DatabaseInteraction.insert_later
-    )  # change to insert, once updates actually work.
-    override_scrape_info: ScraperInfo = ScraperInfo()
-
-
-class BulkProcessSchema(BaseModel):
-    scraper_info_list: List[ScraperInfo]
-    bulk_info: BulkProcessInfo
-
-
-def override_scraper_info(original: ScraperInfo, override: ScraperInfo) -> ScraperInfo:
-    for k, v in override.model_dump().items():
-        if v is not None or v != "":
-            setattr(original, k, v)
-    return original
 
 
 def task_validate_object(task: Task, panic_if_invalid: bool = False) -> Task:
@@ -149,3 +105,48 @@ def create_task(
     task.id = uuid.uuid4()
     task = task_rectify(task)
     return task
+
+
+class DocTextInfo(BaseModel):
+    language: str
+    text: str
+    is_original_text: bool
+
+
+class ScraperInfo(BaseModel):
+    file_url: str = ""  # throw a get request at this url to get the file
+    text: str = ""  # Or get the text content from this field
+    hash: str = ""  # Or get the file corrosponding to this hash from s3
+    name: str = ""
+    published_date: str = ""
+    internal_source_name: str = ""
+    docket_id: str = ""
+    state: str = ""
+    author_individual: str = ""
+    author_individual_email: str = ""
+    author_organisation: str = ""
+    file_class: str = ""  # Decision, Public Comment, etc
+    file_type: str = ""  # PDF, DOCX, etc
+    lang: str = ""  # defaults to "en" unless otherwise specified
+    item_number: str = ""
+
+
+class BulkProcessInfo(BaseModel):
+    generate_report: bool = False
+    report_id: str = ""
+    database_interaction: DatabaseInteraction = (
+        DatabaseInteraction.insert_later
+    )  # change to insert, once updates actually work.
+    override_scrape_info: ScraperInfo = ScraperInfo()
+
+
+class BulkProcessSchema(BaseModel):
+    scraper_info_list: List[ScraperInfo]
+    bulk_info: BulkProcessInfo
+
+
+def override_scraper_info(original: ScraperInfo, override: ScraperInfo) -> ScraperInfo:
+    for k, v in override.model_dump().items():
+        if v is not None or v != "":
+            setattr(original, k, v)
+    return original
